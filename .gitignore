@@ -1,0 +1,31 @@
+# Gmail OAuth secrets -- NEVER commit (spec Appendix E rules 39-40)
+credentials.json
+token.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Game artifacts (per-team, per-match; not source)
+logs/*.json
+reports/*.json
+!logs/.gitkeep
+!reports/.gitkeep
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code local tool settings (machine-specific, not project source)
+.claude/
+
+# Translation working files (not part of the code submission)
+translation_chunks/
+police_thief_p2p_he.txt

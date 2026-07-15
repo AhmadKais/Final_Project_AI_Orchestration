@@ -1,0 +1,80 @@
+"""FastMCP server/client round trip: a geometric move sent by one agent is
+received and correctly decoded by the other (Stage 2 acceptance criterion,
+spec Sec. 10.4). Uses fastmcp's in-process Client(FastMCP) transport, so no
+real socket/port is opened -- this exercises the exact same tool-call path
+that a real network connection would use.
+"""
+
+import asyncio
+
+import pytest
+
+from police_thief.infra.mcp_client import OpponentClient
+from police_thief.infra.mcp_server import MoveMailbox, build_server
+
+
+def make_server():
+    mailbox = MoveMailbox()
+    mcp = build_server("test-peer", mailbox)
+    return mcp, mailbox
+
+
+async def test_move_sent_by_one_agent_is_received_by_the_other():
+    mcp, mailbox = make_server()
+    client = OpponentClient(mcp, response_timeout_sec=5)
+
+    response = await client.send_move(role="police", move="N", step=1)
+
+    assert response == {"accepted": True, "role": "police", "move": "N", "step": 1}
+    received = await asyncio.wait_for(mailbox.get(), timeout=1)
+    assert received == {"role": "police", "move": "N", "step": 1}
+
+
+async def test_send_move_accepts_move_enum_not_just_str():
+    from police_thief.domain.board import Move
+
+    mcp, mailbox = make_server()
+    client = OpponentClient(mcp, response_timeout_sec=5)
+
+    response = await client.send_move(role="thief", move=Move.WEST, step=2)
+
+    assert response["accepted"] is True
+    assert response["move"] == "W"
+
+
+async def test_unknown_move_is_rejected_not_crashed():
+    mcp, mailbox = make_server()
+    client = OpponentClient(mcp, response_timeout_sec=5)
+
+    response = await client.send_move(role="police", move="DIAGONAL", step=1)
+
+    assert response["accepted"] is False
+    assert mailbox.empty()
+
+
+async def test_unknown_role_is_rejected():
+    mcp, mailbox = make_server()
+    client = OpponentClient(mcp, response_timeout_sec=5)
+
+    response = await client.send_move(role="referee", move="N", step=1)
+
+    assert response["accepted"] is False
+    assert mailbox.empty()
+
+
+async def test_slow_opponent_raises_timeout_not_a_hang():
+    # Sec. 8.4.1: a missed deadline is a failure, never an invitation to
+    # keep waiting -- assert this is enforced as a real, bounded timeout.
+    from fastmcp import FastMCP
+
+    slow_mcp = FastMCP("slow-peer")
+
+    @slow_mcp.tool
+    async def receive_move(role: str, move: str, step: int) -> dict:
+        await asyncio.sleep(2)
+        return {"accepted": True}
+
+    client = OpponentClient(slow_mcp, response_timeout_sec=0.1)
+
+    with pytest.raises(TimeoutError):
+        await client.send_move(role="police", move="N", step=1)
