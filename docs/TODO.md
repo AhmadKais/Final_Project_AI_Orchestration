@@ -53,7 +53,14 @@ Mandatory repository content per spec Appendix E rule 50. Grouped by stage; see 
 - [x] Implement `peer_runtime/orchestrator.py` (full per-turn Commit→Ack→Reveal→Verify loop + end-of-game mutual audit)
 - [x] Implement `simulation_sdk/__init__.py` (`build_peer`, `run_peer`, `run_replay`)
 - [x] Fix `BeliefMap.arg_max()` (was raising on an empty map -- broke turn 0) and add `COMMITTING -> TECHNICAL_LOSS` to the state machine (Fig. 11 says every communication stage should reach it, `COMMITTING` was missing)
-- [x] Two Orchestrators play a full game end-to-end in-process, log passes `ReplayViewer.verify_all()` -- 146/147 tests passing project-wide (1 skip: no display/`tkinter`)
+- [x] Two Orchestrators play a full game end-to-end in-process, log passes `ReplayViewer.verify_all()`
+
+## Post-wiring strategy hardening ✅
+- [x] Wire Cop barrier placement all the way through the Commit-Reveal protocol (`domain/protocol.encode_move`/`decode_move`) -- previously implemented at the Board level (Stage 1) but never actually reachable from a real turn
+- [x] Fix a real self-trapping bug: `HeuristicBrain` could wall off its own only route to the target (Sec. 3.4's own warning) -- now checks a safe alternate route exists first
+- [x] Add mobility-aware tie-break to the Robber's evasion (prefers the resulting cell with more future legal moves, avoids dead ends)
+- [x] Fix a real stuck-belief bug found via multi-seed integration testing: `BeliefMap.decay_toward_uniform` prevents an old, highly-confident-but-stale belief from taking 10+ turns to correct
+- [x] 168 tests, 167 passing, 1 skipped (no display/`tkinter`)
 
 ## Submission checklist (Appendix C Table 6) — do last
 - [ ] Two GitHub repos (Cop, Robber), cross-linked READMEs

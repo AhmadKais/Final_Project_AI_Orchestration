@@ -13,6 +13,28 @@ import secrets
 from dataclasses import dataclass
 from enum import Enum
 
+from police_thief.domain.board import Coord, Move
+
+_BARRIER_MARKER = "+BARRIER:"
+
+
+def encode_move(move: Move, barrier_target: Coord | None) -> str:
+    """Fold an optional barrier placement into the move string that gets
+    cryptographically committed to (Sec. 5.3): the Cop's declared barrier
+    location becomes part of the same locked, truthful action as its move,
+    with no change to domain.crypto's (state, move, intent, nonce) shape."""
+    if barrier_target is None:
+        return move.value
+    return f"{move.value}{_BARRIER_MARKER}{barrier_target[0]},{barrier_target[1]}"
+
+
+def decode_move(move_str: str) -> tuple[Move, Coord | None]:
+    if _BARRIER_MARKER not in move_str:
+        return Move(move_str), None
+    move_part, _, barrier_part = move_str.partition(_BARRIER_MARKER)
+    row_str, col_str = barrier_part.split(",")
+    return Move(move_part), (int(row_str), int(col_str))
+
 
 class MessageType(str, Enum):
     COMMIT = "commit"

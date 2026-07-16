@@ -12,11 +12,13 @@ map from the opponent's freshly-true position (scent) and hint. At game
 end, exchanges Nonces for a mutual audit (Sec. 5.4) and writes a two-sided
 game log a ReplayViewer can fully verify.
 
-Not wired in: Cop barrier placement (BrainBase._decide_barrier stays at its
-default "never place a barrier"), and capture-claim honesty cross-checking
-via domain.rules.check_capture_claim -- both are optional strategic
-richness beyond what "wiring the pieces together" requires; the underlying
-mechanics are already implemented and unit-tested (Stage 1).
+Cop barrier placement is wired in: HeuristicBrain.decide_barrier's choice
+gets folded into the committed move string (domain.protocol.encode_move)
+so it's cryptographically locked exactly like any other action, and
+applied to the shared Board once both sides' reveals are in. Not wired in:
+capture-claim honesty cross-checking via domain.rules.check_capture_claim
+-- optional richness beyond what the underlying Commit-Reveal hash
+verification already catches; the mechanic itself is unit-tested (Stage 1).
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from pathlib import Path
 from police_thief.domain.belief import BeliefMap
 from police_thief.domain.board import Board, Coord, Move
 from police_thief.domain.crypto import audit_log, commit
+from police_thief.domain.protocol import decode_move, encode_move
 from police_thief.domain.rules import GameOutcome, determine_outcome
 from police_thief.domain.scent import ScentField
 from police_thief.domain.strategy.brain_base import BrainBase
@@ -124,12 +127,16 @@ class Orchestrator:
         own_pos = self._own_pos()
         opponent_pos_before = self._opponent_pos()
         move = self.brain.pick_move(self.board, own_pos, self.belief)
+        barrier_target = None
+        if move == Move.STAY and self.role == "police":
+            barrier_target = self.brain.decide_barrier(self.board, own_pos, self.belief)
+        move_value = encode_move(move, barrier_target)
         hint = self.llm_provider.generate_hint(
             prompt=f"role={self.role} step={self.step}", word_limit=self.hint_max_words
         )
         intent = "true"
         state = self._canonical_state(self.role, self.step, own_pos)
-        commitment = commit(state, move.value, intent)
+        commitment = commit(state, move_value, intent)
 
         self.phase.transition("COMMITTING")
         self.deadline.start()
@@ -148,7 +155,7 @@ class Orchestrator:
 
         self.phase.transition("AWAITING_REVEAL")
         self.deadline.start()
-        await self.mcp_client.send_reveal(role=self.role, step=self.step, move=move, hint=hint, intent=intent)
+        await self.mcp_client.send_reveal(role=self.role, step=self.step, move=move_value, hint=hint, intent=intent)
         opponent_reveal = await self._await_with_deadline(self.mailbox.reveals)
         if opponent_reveal is None:
             return self._technical_loss()
@@ -157,17 +164,24 @@ class Orchestrator:
         self.phase.transition("VERIFYING")
         self._own_log.append({
             "step": self.step, "role": self.role, "state": state,
-            "move": move.value, "intent": intent,
+            "move": move_value, "intent": intent,
             "nonce": commitment.nonce, "h_commit": commitment.h_commit,
         })
 
         try:
+            opponent_move, opponent_barrier_target = decode_move(opponent_reveal["move"])
             self.board.apply_move(self.role, move)
-            self.board.apply_move(self.opponent_role, Move(opponent_reveal["move"]))
+            self.board.apply_move(self.opponent_role, opponent_move)
+            barrier_to_place = barrier_target or opponent_barrier_target
+            if barrier_to_place is not None:
+                # At most one side is ever the Cop, so at most one of the
+                # two is non-None; STAY never moved cop_pos, so it's still
+                # correct after both apply_move calls above.
+                self.board.place_barrier(self.board.cop_pos, barrier_to_place)
         except ValueError:
-            # The opponent revealed a move that is illegal against the
-            # physics both sides are supposed to enforce identically --
-            # treat exactly like any other integrity failure.
+            # The opponent revealed a move (or barrier) that is illegal
+            # against the physics both sides are supposed to enforce
+            # identically -- treat exactly like any other integrity failure.
             return self._technical_loss()
 
         if self.board.is_capture():
@@ -186,6 +200,7 @@ class Orchestrator:
             field_size=self.pheromone_grid_size,
         )
         self.opponent_scent.decay(self.pheromone_decay)
+        self.belief.decay_toward_uniform(self.pheromone_decay)
         self.belief.update_from_scent(self.opponent_scent)
         self.belief.update_from_hint(opponent_reveal["hint"], trust_coefficient=1.0)
 

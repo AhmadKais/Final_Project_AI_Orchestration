@@ -1,9 +1,39 @@
 """Wire-level message envelope: build_message/parse_message signing and
-tamper detection (Sec. 2.3, 5.3)."""
+tamper detection (Sec. 2.3, 5.3), and the move/barrier composite encoding
+used to fold a Cop's barrier placement into the cryptographically
+committed move string (Sec. 3.4's "Duty of Declaration")."""
 
 import pytest
 
-from police_thief.domain.protocol import MessageType, build_message, parse_message
+from police_thief.domain.board import Move
+from police_thief.domain.protocol import MessageType, build_message, decode_move, encode_move, parse_message
+
+
+def test_encode_move_without_barrier_is_the_plain_move_value():
+    assert encode_move(Move.NORTH, None) == "N"
+    assert encode_move(Move.STAY, None) == "STAY"
+
+
+def test_encode_move_with_barrier_folds_in_the_target_cell():
+    encoded = encode_move(Move.STAY, (2, 3))
+    assert encoded == "STAY+BARRIER:2,3"
+
+
+def test_decode_move_round_trips_without_barrier():
+    move, barrier = decode_move(encode_move(Move.EAST, None))
+    assert move == Move.EAST
+    assert barrier is None
+
+
+def test_decode_move_round_trips_with_barrier():
+    move, barrier = decode_move(encode_move(Move.STAY, (5, 6)))
+    assert move == Move.STAY
+    assert barrier == (5, 6)
+
+
+def test_decode_move_rejects_malformed_input():
+    with pytest.raises(ValueError):
+        decode_move("not a real move")
 
 
 def test_build_then_parse_round_trips():

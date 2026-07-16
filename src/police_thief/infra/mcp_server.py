@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from fastmcp import FastMCP
 
 from police_thief.domain.board import Move
+from police_thief.domain.protocol import decode_move
 
 _LEGAL_MOVE_VALUES = {m.value for m in Move}
 _LEGAL_ROLES = {"police", "thief"}
@@ -80,8 +81,16 @@ def build_server(name: str, mailbox: MoveMailbox) -> FastMCP:
 
     @mcp.tool
     async def receive_reveal(role: str, step: int, move: str, hint: str, intent: str) -> dict:
-        """Receive the revealed move + verbal hint (Nonce still hidden, Sec. 5.3.2)."""
-        if move not in _LEGAL_MOVE_VALUES:
+        """Receive the revealed move + verbal hint (Nonce still hidden, Sec.
+        5.3.2). `move` may be a plain direction/STAY, or a STAY with a
+        barrier placement folded in (domain.protocol.encode_move) -- only
+        the format is checked here; whether the barrier itself is legal is
+        the Orchestrator's job, same as for the move."""
+        try:
+            base_move, _ = decode_move(move)
+        except ValueError:
+            return {"accepted": False, "error": f"malformed move {move!r}"}
+        if base_move.value not in _LEGAL_MOVE_VALUES:
             return {"accepted": False, "error": f"unknown move {move!r}"}
         await mailbox.reveals.put(
             {"role": role, "step": step, "move": move, "hint": hint, "intent": intent}

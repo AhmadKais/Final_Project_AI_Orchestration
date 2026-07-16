@@ -62,6 +62,31 @@ async def test_unknown_role_is_rejected():
     assert mailbox.empty()
 
 
+async def test_receive_reveal_accepts_a_barrier_encoded_move():
+    mcp, mailbox = make_server()
+    client = OpponentClient(mcp, response_timeout_sec=5)
+
+    response = await client.send_reveal(
+        role="police", step=0, move="STAY+BARRIER:2,3", hint="holding position", intent="true"
+    )
+
+    assert response == {"accepted": True}
+    received = await asyncio.wait_for(mailbox.reveals.get(), timeout=1)
+    assert received["move"] == "STAY+BARRIER:2,3"
+
+
+async def test_receive_reveal_rejects_malformed_barrier_encoding():
+    mcp, mailbox = make_server()
+    client = OpponentClient(mcp, response_timeout_sec=5)
+
+    response = await client.send_reveal(
+        role="police", step=0, move="STAY+BARRIER:not-a-coord", hint="", intent="true"
+    )
+
+    assert response["accepted"] is False
+    assert mailbox.reveals.empty()
+
+
 async def test_slow_opponent_raises_timeout_not_a_hang():
     # Sec. 8.4.1: a missed deadline is a failure, never an invitation to
     # keep waiting -- assert this is enforced as a real, bounded timeout.

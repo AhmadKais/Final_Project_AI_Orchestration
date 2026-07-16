@@ -19,13 +19,14 @@ Leaving the section commented out/empty runs the shipped `HeuristicBrain` (Bayes
 Subclass `police_thief.domain.strategy.brain_base.BrainBase`:
 
 - Override `_pick_move(self, board, own_pos, belief) -> Move`. **Must always return a legal move** — `PeerRuntime` rejects illegal moves and forces a technical loss (spec Sec. 6.2, Appendix E rule 13-14).
-- Cop only: override `_decide_barrier(self, board, cop_pos, belief) -> Coord | None` to choose a barrier placement instead of moving.
+- Cop only: override `_decide_barrier(self, board, cop_pos, belief) -> Coord | None` to choose a barrier placement instead of moving. Only called when `_pick_move` returns `STAY`; validated the same way `Board.place_barrier` is (self-cell or orthogonally adjacent, in bounds, unbarriered, under quota) before it's ever committed to.
+- **Watch your own trap.** The spec warns explicitly (Sec. 3.4): "a barrier placed greedily can trap the Cop itself behind a wall it built." `HeuristicBrain._best_barrier_option` only offers a placement if the Cop still has at least one other legal move that keeps making progress toward the target afterward — check the same before you offer one from your own brain.
 
 ## The three equal-value tracks (spec Sec. 6.3-6.3.1)
 
 None of these is "more correct" than the others — the course did not teach RL, and a fully competitive agent can be built with heuristics alone:
 
-1. **Pure heuristics** (Bayes + Manhattan) — the shipped default. Deterministic, transparent, easy to debug.
+1. **Pure heuristics** (Bayes + Manhattan) — the shipped default. Deterministic, transparent, easy to debug. Beyond raw pursuit/evasion, `HeuristicBrain` also: seals off one of the target's escape routes with a barrier when tactically close (Cop only, distance 2-3, never self-trapping); tie-breaks the Robber's evasion by which resulting cell keeps the most future mobility open (avoids backing into dead ends); and decays belief confidence toward uniform each turn (`BeliefMap.decay_toward_uniform`) so a stale high-confidence guess can still be overturned by fresh evidence instead of getting stuck.
 2. **Your own heuristic algorithm** — combine belief, scent, barrier exploitation, and forward search (minimax/expectimax) in deterministic code.
 3. **Reinforcement learning (optional)** — Q-Learning via the Bellman equation, with epsilon-greedy exploration. Only worthwhile if you want the learning-curve evidence for the README (Sec. 9.4.2 item 4).
 

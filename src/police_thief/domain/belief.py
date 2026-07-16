@@ -47,6 +47,23 @@ class BeliefMap:
             uniform = 1.0 / len(cells)
             self.probabilities = {cell: uniform for cell in cells}
 
+    def decay_toward_uniform(self, rate: float) -> None:
+        """Blend the current posterior toward a uniform distribution by
+        `rate` (0..1). Without this, repeated Bayesian updates only ever
+        sharpen -- an old, highly confident belief (e.g. from many turns
+        of consistent evidence at a stale cell) becomes almost impossible
+        to overturn with new evidence, even after the target has clearly
+        moved elsewhere: a likelihood ratio of ~2 per turn cannot out-race
+        a prior sitting at 0.999. Mirrors the physical scent trail's own
+        decay -- confidence should fade the same way the evidence that
+        built it does. Call once per turn, before update_from_scent."""
+        self._ensure_initialized()
+        uniform = 1.0 / len(self.probabilities)
+        self.probabilities = {
+            cell: (1 - rate) * prob + rate * uniform
+            for cell, prob in self.probabilities.items()
+        }
+
     def _apply_likelihood(self, likelihood: dict[Coord, float]) -> None:
         """posterior(s) = prior(s) * likelihood(s), renormalized."""
         self._ensure_initialized()

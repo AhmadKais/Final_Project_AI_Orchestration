@@ -14,7 +14,12 @@ import random
 from police_thief.infra.llm.base import LLMProvider
 
 _GENERIC_LANDMARKS = [
-    "the old bridge", "the market square", "the north gate",
+    # Deliberately free of cardinal-direction words ("north"/"south"/etc.)
+    # -- domain.belief.update_from_hint parses those as spatial cues, and a
+    # landmark name accidentally containing one would silently perturb
+    # belief with no strategic intent behind it (found via multi-seed
+    # integration testing: "the north gate" was doing exactly this).
+    "the old bridge", "the market square", "the harbor gate",
     "the clock tower", "the riverbank", "the alley behind the mill",
     "the boarded-up warehouse", "the train yard", "the fountain plaza",
 ]

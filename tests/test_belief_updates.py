@@ -6,6 +6,47 @@ from police_thief.domain.belief import BeliefMap
 from police_thief.domain.scent import ScentField
 
 
+def test_decay_toward_uniform_erodes_an_overconfident_stale_belief():
+    # Reproduces a real bug found via full-game integration testing: a
+    # belief that reached ~0.999 confidence at one cell took 10+ turns of
+    # strong contradicting evidence to budge at all, because a pure
+    # multiplicative Bayesian update only ever sharpens. decay_toward_uniform
+    # must let fresh evidence actually win within a reasonable number of turns.
+    belief = BeliefMap(grid_size=5)
+    belief.probabilities = {(3, 3): 0.999}
+    for cell in [(r, c) for r in range(5) for c in range(5)]:
+        belief.probabilities.setdefault(cell, 0.0001 / 24)
+    total = sum(belief.probabilities.values())
+    belief.probabilities = {k: v / total for k, v in belief.probabilities.items()}
+
+    scent = ScentField(grid_size=5)
+    for _ in range(10):
+        belief.decay_toward_uniform(0.10)
+        scent.emit(center=(4, 4), peak=0.9, field_size=5)
+        scent.decay(0.10)
+        belief.update_from_scent(scent)
+
+    assert belief.arg_max() == (4, 4)
+
+
+def test_decay_toward_uniform_preserves_normalization():
+    belief = BeliefMap(grid_size=5, probabilities={(2, 2): 0.7, (4, 4): 0.3})
+    belief.decay_toward_uniform(0.2)
+    assert abs(sum(belief.probabilities.values()) - 1.0) < 1e-9
+
+
+def test_decay_toward_uniform_at_rate_one_is_fully_uniform():
+    belief = BeliefMap(grid_size=5)
+    belief.probabilities = {(r, c): 0.0 for r in range(5) for c in range(5)}
+    belief.probabilities[(2, 2)] = 0.99
+    belief.probabilities[(4, 4)] = 0.01
+
+    belief.decay_toward_uniform(1.0)
+
+    values = {round(v, 9) for v in belief.probabilities.values()}
+    assert values == {round(1 / 25, 9)}
+
+
 def test_probabilities_sum_to_one_after_scent_update():
     belief = BeliefMap(grid_size=5)
     scent = ScentField(grid_size=5)

@@ -40,3 +40,29 @@ class BrainBase(ABC):
                 f"{move!r} from {own_pos}"
             )
         return move
+
+    def decide_barrier(self, board: Board, cop_pos: Coord, belief: BeliefMap) -> Coord | None:
+        """Public entry point used by PeerRuntime; wraps `_decide_barrier`
+        with the same legality validation `Board.place_barrier` enforces
+        (self-cell or orthogonally adjacent, in bounds, not already
+        barriered, under quota) -- checked here, before commit, so an
+        illegal choice never gets cryptographically locked in."""
+        target = self._decide_barrier(board, cop_pos, belief)
+        if target is None:
+            return None
+        if not board.in_bounds(target):
+            raise ValueError(f"{type(self).__name__}._decide_barrier returned {target!r}, off-board")
+        row_dist = abs(target[0] - cop_pos[0])
+        col_dist = abs(target[1] - cop_pos[1])
+        if row_dist + col_dist > 1:
+            raise ValueError(
+                f"{type(self).__name__}._decide_barrier returned {target!r}, "
+                f"not the Cop's own cell or orthogonally adjacent to {cop_pos}"
+            )
+        if target in board.barriers:
+            raise ValueError(f"{type(self).__name__}._decide_barrier returned {target!r}, already barriered")
+        if len(board.barriers) >= board.max_barriers:
+            raise ValueError(
+                f"{type(self).__name__}._decide_barrier returned {target!r}, but the barrier quota is exhausted"
+            )
+        return target
