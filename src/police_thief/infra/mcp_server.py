@@ -38,6 +38,7 @@ class MoveMailbox:
     reveals: asyncio.Queue = field(default_factory=asyncio.Queue)
     final_audits: asyncio.Queue = field(default_factory=asyncio.Queue)
     capture_claims: asyncio.Queue = field(default_factory=asyncio.Queue)
+    step0s: asyncio.Queue = field(default_factory=asyncio.Queue)
 
     async def put(self, message: dict) -> None:
         await self.moves.put(message)
@@ -66,6 +67,16 @@ def build_server(name: str, mailbox: MoveMailbox) -> FastMCP:
             return {"accepted": False, "error": f"unknown move {move!r}"}
         await mailbox.moves.put({"role": role, "move": move, "step": step})
         return {"accepted": True, "role": role, "move": move, "step": step}
+
+    @mcp.tool
+    async def receive_step0(role: str, declaration: dict, signature: str) -> dict:
+        """Receive the opponent's Step-0 hardware/software declaration,
+        exchanged once before the first move (Sec. 5.5, Appendix E rules
+        24 and 53). `signature` proves non-tampering to a third party
+        (the instructor) later -- it's each team's own signing key, not a
+        shared secret, so it isn't cross-verified peer-to-peer here."""
+        await mailbox.step0s.put({"role": role, "declaration": declaration, "signature": signature})
+        return {"accepted": True}
 
     @mcp.tool
     async def receive_commit(role: str, step: int, h_commit: str) -> dict:

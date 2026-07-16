@@ -8,7 +8,7 @@ uv run python scripts/generate_sample_reports.py
 
 | File | Role (Table 20) |
 |---|---|
-| `declaration_demo-001.json` | `[Declaration File]` — team/repo/MCP-address/hardware identities, fixed for the whole game |
+| `declaration_demo-001.json` | `[Declaration File]` — team/repo/MCP-address/hardware identities, fixed for the whole game. Hardware comes straight from the real Step-0 exchange each `Orchestrator` runs at the start of `run_game()` (Sec. 5.5) |
 | `config_demo-001_g01.json` | `[Configuration File]` — the actual `config/game.json` this match ran under |
 | `log_demo-001_g01.json` | `[Log File]` — every Commit-Reveal step from both sides; `ReplayViewer(...).verify_all()` returns `True` on it |
 | `result_demo-001.json` | `[Results File]` — the real outcome and score from this match |

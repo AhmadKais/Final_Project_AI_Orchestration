@@ -49,6 +49,11 @@ class OpponentClient:
                 raise
             return result.data
 
+    async def send_step0(self, *, role: str, declaration: dict, signature: str) -> dict:
+        return await self._call(
+            "receive_step0", {"role": role, "declaration": declaration, "signature": signature}
+        )
+
     async def send_move(self, *, role: str, move: Move | str, step: int) -> dict:
         """Call the opponent's `receive_move` tool with a plain geometric move."""
         move_value = move.value if isinstance(move, Move) else move

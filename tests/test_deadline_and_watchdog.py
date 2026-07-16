@@ -8,6 +8,7 @@ from pathlib import Path
 from police_thief.peer_runtime.deadline_tracker import DeadlineTracker
 from police_thief.peer_runtime.watchdog import (
     _STATE_MARKER_PATH,
+    HeartbeatWatchdog,
     controlled_shutdown,
     persist_state,
     watchdog_check,
@@ -69,3 +70,35 @@ def test_persist_state_writes_a_timestamped_marker(tmp_path):
 
 def test_controlled_shutdown_is_a_safe_no_op():
     assert controlled_shutdown() is None
+
+
+# -- HeartbeatWatchdog: real background-thread monitor (Sec. 8.4.2) --------
+
+def test_heartbeat_watchdog_does_not_trigger_while_heartbeats_keep_coming():
+    watchdog = HeartbeatWatchdog(timeout_sec=0.3, poll_interval_sec=0.05)
+    watchdog.start()
+    try:
+        for _ in range(5):
+            time.sleep(0.05)
+            watchdog.heartbeat()
+        assert watchdog.triggered.is_set() is False
+    finally:
+        watchdog.stop()
+        Path(_STATE_MARKER_PATH).unlink(missing_ok=True)
+
+
+def test_heartbeat_watchdog_triggers_when_heartbeats_stop():
+    watchdog = HeartbeatWatchdog(timeout_sec=0.1, poll_interval_sec=0.05)
+    watchdog.start()
+    try:
+        assert watchdog.triggered.wait(timeout=1.0) is True
+    finally:
+        watchdog.stop()
+        Path(_STATE_MARKER_PATH).unlink(missing_ok=True)
+
+
+def test_heartbeat_watchdog_stop_joins_the_thread():
+    watchdog = HeartbeatWatchdog(timeout_sec=10, poll_interval_sec=0.05)
+    watchdog.start()
+    watchdog.stop()
+    assert watchdog._thread.is_alive() is False

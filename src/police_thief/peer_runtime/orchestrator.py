@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from police_thief.domain.belief import BeliefMap
@@ -39,6 +40,8 @@ from police_thief.infra.mcp_client import OpponentClient
 from police_thief.infra.mcp_server import MoveMailbox
 from police_thief.peer_runtime.deadline_tracker import DeadlineTracker
 from police_thief.peer_runtime.state_machine import GamePhaseMachine
+from police_thief.peer_runtime.watchdog import HeartbeatWatchdog
+from police_thief.shared.system_info import collect_step0_declaration, sign_declaration
 
 _OPPONENT_ROLE = {"police": "thief", "thief": "police"}
 
@@ -48,6 +51,9 @@ class Orchestrator:
         self, *, role: str, brain: BrainBase, mcp_client: OpponentClient,
         mailbox: MoveMailbox, llm_provider: LLMProvider, config: dict,
         log_path: Path | None = None,
+        code_version: str = "0.1.0", github_commit: str = "unknown",
+        group_name: str | None = None, llm_model: str = "unknown",
+        signing_key: bytes = b"local-dev-key-replace-in-production",
     ):
         self.role = role
         self.opponent_role = _OPPONENT_ROLE[role]
@@ -57,6 +63,16 @@ class Orchestrator:
         self.llm_provider = llm_provider
         self.config = config
         self.log_path = log_path
+
+        # Step-0 identity (Sec. 5.5, Appendix E rules 24 & 53) -- collected
+        # and exchanged once, before the first move.
+        self.code_version = code_version
+        self.github_commit = github_commit
+        self.group_name = group_name or f"unnamed-{role}-team"
+        self.llm_model = llm_model
+        self.signing_key = signing_key
+        self.own_step0 = None
+        self.opponent_step0 = None
 
         board_cfg = config["board_and_agents"]
         move_cfg = config["movement_and_barriers"]
@@ -83,6 +99,7 @@ class Orchestrator:
 
         self.phase = GamePhaseMachine()
         self.deadline = DeadlineTracker(timeout_sec=network_cfg.get("response_timeout_sec", 30))
+        self.watchdog = HeartbeatWatchdog(timeout_sec=network_cfg.get("watchdog_timeout_sec", 60))
 
         self.step = 0
         self.outcome: GameOutcome | None = None
@@ -115,6 +132,26 @@ class Orchestrator:
         self.phase.transition("TECHNICAL_LOSS")
         self.outcome = GameOutcome.TECHNICAL_LOSS
         return False
+
+    # -- Step-0: hardware/software declaration exchange, before the first move --
+
+    async def _exchange_step0(self) -> None:
+        """Collect and exchange Step-0 declarations (Sec. 5.5). A missing
+        or absent opponent declaration is not a technical loss -- Appendix
+        E rule 24's own sanction is "forfeiture of eligibility for the
+        computational-fairness bonus," a softer consequence than the hash-
+        mismatch disqualification rule."""
+        self.own_step0 = collect_step0_declaration(
+            code_version=self.code_version, github_commit=self.github_commit,
+            group_name=self.group_name, sub_game_number=1, llm_model=self.llm_model,
+        )
+        own_signature = sign_declaration(self.own_step0, self.signing_key)
+        self.deadline.start()
+        await self.mcp_client.send_step0(
+            role=self.role, declaration=asdict(self.own_step0), signature=own_signature,
+        )
+        opponent_step0 = await self._await_with_deadline(self.mailbox.step0s)
+        self.opponent_step0 = opponent_step0["declaration"] if opponent_step0 else None
 
     # -- one full turn ------------------------------------------------------
 
@@ -219,16 +256,30 @@ class Orchestrator:
     # -- end of game ----------------------------------------------------------
 
     async def run_game(self) -> GameOutcome:
-        """Loop run_turn() until capture, survival, or technical loss, then
-        run the mutual final audit and write the game log."""
-        while await self.run_turn():
-            pass
+        """Exchange Step-0 declarations, then loop run_turn() until
+        capture, survival, or technical loss, then run the mutual final
+        audit and write the game log. A background Watchdog (Sec. 8.4.2)
+        monitors for a frozen main loop the whole time."""
+        self.watchdog.start()
+        try:
+            await self._exchange_step0()
+            self.watchdog.heartbeat()
 
-        if self.outcome != GameOutcome.TECHNICAL_LOSS:
-            forged = await self._final_audit()
-            if forged:
+            while not self.watchdog.triggered.is_set():
+                if not await self.run_turn():
+                    break
+                self.watchdog.heartbeat()
+
+            if self.watchdog.triggered.is_set() and self.outcome is None:
                 self.outcome = GameOutcome.TECHNICAL_LOSS
-                self.forgery_detected = True
+
+            if self.outcome != GameOutcome.TECHNICAL_LOSS:
+                forged = await self._final_audit()
+                if forged:
+                    self.outcome = GameOutcome.TECHNICAL_LOSS
+                    self.forgery_detected = True
+        finally:
+            self.watchdog.stop()
 
         if self.log_path is not None:
             self._write_log()
@@ -273,8 +324,17 @@ class Orchestrator:
     def _write_log(self) -> None:
         """Two-sided log: this side's own entries plus the opponent's
         reconstructed, audited entries -- a full match a ReplayViewer can
-        verify end to end, not just one side's actions."""
+        verify end to end, not just one side's actions. Also includes both
+        sides' Step-0 declarations (ReplayViewer only reads "entries" and
+        ignores the rest, so this is additive, not a format change)."""
         opponent_entries = getattr(self, "_opponent_verified_log", [])
         all_entries = sorted(self._own_log + opponent_entries, key=lambda e: (e["step"], e["role"]))
+        payload = {
+            "entries": all_entries,
+            "step0": {
+                self.role: asdict(self.own_step0) if self.own_step0 else None,
+                self.opponent_role: self.opponent_step0,
+            },
+        }
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self.log_path.write_text(json.dumps({"entries": all_entries}, indent=2))
+        self.log_path.write_text(json.dumps(payload, indent=2))

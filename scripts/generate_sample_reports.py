@@ -1,8 +1,9 @@
 """Generate the four mandatory sample JSON reports (Sec. 9.3.3, Appendix F
 Table 20) from an ACTUAL played match -- not fabricated data. Uses the same
 in-process FastMCP transport as tests/test_orchestrator_integration.py, the
-real shared config/game.json, and real Step-0 hardware declarations
-(shared/system_info.py) for this machine.
+real shared config/game.json, and the Orchestrator's own real Step-0
+exchange (shared/system_info.py + peer_runtime/orchestrator.py) -- not a
+second, parallel implementation of it.
 
 Usage:
     uv run python scripts/generate_sample_reports.py
@@ -17,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+from dataclasses import asdict
 from pathlib import Path
 
 from police_thief.domain.scoring import score_outcome
@@ -26,7 +28,6 @@ from police_thief.infra.mcp_server import MoveMailbox, build_server
 from police_thief.domain.strategy.heuristic_brain import HeuristicBrain
 from police_thief.peer_runtime.orchestrator import Orchestrator
 from police_thief.shared.config_manager import load_shared_config
-from police_thief.shared.system_info import collect_step0_declaration, sign_declaration
 
 GAME_UID = "demo-001"
 SUB_GAME_NUMBER = "01"
@@ -46,6 +47,8 @@ async def play_sample_match() -> tuple[Orchestrator, Orchestrator]:
         mcp_client=OpponentClient(thief_mcp, response_timeout_sec=5), mailbox=police_mailbox,
         llm_provider=TemplateProvider(rng=random.Random(1)), config=shared_config,
         log_path=OUT_DIR / f"log_{GAME_UID}_g{SUB_GAME_NUMBER}.json",
+        code_version="0.1.0", github_commit="0000000sample",
+        group_name="sample-team-police", llm_model="template",
     )
     thief = Orchestrator(
         role="thief", brain=HeuristicBrain(role="thief"),
@@ -56,6 +59,8 @@ async def play_sample_match() -> tuple[Orchestrator, Orchestrator]:
         # (police's) is the correct [Log File] per Table 20 -- writing a
         # second, near-identical copy under a made-up name would misrepresent
         # the file-naming convention this is meant to illustrate.
+        code_version="0.1.0", github_commit="0000000sample",
+        group_name="sample-team-thief", llm_model="template",
     )
     await asyncio.gather(police.run_game(), thief.run_game())
     return police, thief
@@ -64,19 +69,9 @@ async def play_sample_match() -> tuple[Orchestrator, Orchestrator]:
 def write_declaration(police: Orchestrator, thief: Orchestrator) -> None:
     """[Declaration File] (Appendix F Table 20): constant data for the
     whole game -- teams, repos, MCP addresses, hardware, LLM, token
-    ceiling, timestamps (Sec. 9.3.3)."""
-    police_decl = collect_step0_declaration(
-        code_version="0.1.0", github_commit="0000000",
-        group_name="sample-team-police", sub_game_number=1,
-        llm_model="template",
-    )
-    thief_decl = collect_step0_declaration(
-        code_version="0.1.0", github_commit="0000000",
-        group_name="sample-team-thief", sub_game_number=1,
-        llm_model="template",
-    )
-    signing_key = b"sample-signing-key-not-for-real-use"
-
+    ceiling, timestamps (Sec. 9.3.3). Hardware comes straight from the
+    Step-0 exchange each Orchestrator already ran as part of run_game()
+    (Sec. 5.5) -- not re-collected here."""
     declaration = {
         "game_uid": GAME_UID,
         "teams": {
@@ -95,8 +90,8 @@ def write_declaration(police: Orchestrator, thief: Orchestrator) -> None:
             "police": "http://127.0.0.1:8801/mcp", "thief": "http://127.0.0.1:8802/mcp",
         },
         "hardware": {
-            "police": {**vars(police_decl), "signature": sign_declaration(police_decl, signing_key)},
-            "thief": {**vars(thief_decl), "signature": sign_declaration(thief_decl, signing_key)},
+            "police": asdict(police.own_step0),
+            "thief": asdict(thief.own_step0),
         },
         "token_budget_per_series": 200000,
     }

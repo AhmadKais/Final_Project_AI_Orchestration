@@ -40,7 +40,7 @@ Mandatory repository content per spec Appendix E rule 50. Grouped by stage; see 
 - [x] Un-skip and pass `tests/test_crypto.py` -- 96/96 passing, zero skips
 
 ## Stage 7 — Reporting and Visualization Shell ✅ (mostly)
-- [ ] Complete Gmail OAuth setup (`credentials.json`, `token.json` — never commit) -- **needs your own Google account/credentials, see Appendix A / `docs/`**
+- [ ] Complete Gmail OAuth setup (`credentials.json`, `token.json` — never commit) -- **needs your own Google account, a real web signup + consent flow only you can do, see `docs/GMAIL_SETUP.md`**
 - [x] Implement `infra/gatekeeper.py` (QuotaManager, TokenBucket, DOSDetector)
 - [x] Implement `infra/email_sender.py` (tested against a mocked Gmail service)
 - [x] Implement `interface/live_gui.py` (belief heatmap, turn banner) -- pure logic tested; live Tkinter rendering untested, no display/`python3-tk` in this sandbox
@@ -61,7 +61,12 @@ Mandatory repository content per spec Appendix E rule 50. Grouped by stage; see 
 - [x] Fix a real self-trapping bug: `HeuristicBrain` could wall off its own only route to the target (Sec. 3.4's own warning) -- now checks a safe alternate route exists first
 - [x] Add mobility-aware tie-break to the Robber's evasion (prefers the resulting cell with more future legal moves, avoids dead ends)
 - [x] Fix a real stuck-belief bug found via multi-seed integration testing: `BeliefMap.decay_toward_uniform` prevents an old, highly-confident-but-stale belief from taking 10+ turns to correct
-- [x] 168 tests, 167 passing, 1 skipped (no display/`tkinter`)
+- [x] Download ngrok into `tools/` (gitignored), confirm the exact remaining blocker directly (`ERR_NGROK_4018`, needs a real account)
+- [x] Implement `OllamaProvider`/`ClaudeAPIProvider`/`ClaudeCLIProvider` for real (previously stubbed)
+- [x] Generate real sample JSON reports from an actual match (`scripts/generate_sample_reports.py`)
+- [x] Wire Step-0 hardware declaration exchange into `run_game()` (Sec. 5.5, Appendix E rules 24 & 53) -- `collect_step0_declaration`/`sign_declaration` existed since Stage 6 but were never actually called during a real game; now exchanged before the first move via a new `receive_step0`/`send_step0` MCP tool, and recorded in the log
+- [x] Wire the Watchdog into `run_game()` (Sec. 8.4.2) -- also implemented-but-unused since Stage 8; `HeartbeatWatchdog` now runs on a real background OS thread (not another asyncio task in the same event loop, which a CPU-bound freeze would starve too) and the main loop checks it every turn
+- [x] 182 tests, 181 passing, 1 skipped (no display/`tkinter`)
 
 ## Submission checklist (Appendix C Table 6) — do last
 - [ ] Two GitHub repos (Cop, Robber), cross-linked READMEs

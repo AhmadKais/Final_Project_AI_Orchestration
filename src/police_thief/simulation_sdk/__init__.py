@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import subprocess
 from pathlib import Path
 
 from police_thief.domain.strategy.brain_base import BrainBase
@@ -51,6 +52,19 @@ def _build_llm_provider(trash_talk_cfg: dict) -> LLMProvider:
     return _PROVIDERS[provider_name]()
 
 
+def _current_git_commit() -> str:
+    """Best-effort HEAD commit hash for the Step-0 declaration (Appendix E
+    rule 53: "record the commit hash that was played"). Never fatal --
+    falls back to "unknown" outside a git repo or if git isn't installed."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5, check=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.SubprocessError, OSError):
+        return "unknown"
+
+
 def build_peer(role: Role, config_root: Path = Path("config")) -> Orchestrator:
     """Load config, construct the brain (from [strategy] or HeuristicBrain
     default), and assemble a ready-to-run Orchestrator for this role."""
@@ -68,10 +82,19 @@ def build_peer(role: Role, config_root: Path = Path("config")) -> Orchestrator:
         response_timeout_sec=values.get("network_and_league", {}).get("response_timeout_sec", 30),
     )
 
+    from police_thief.shared.version import __version__
+
+    game_cfg = values.get("game", {})
+    llm_cfg = values.get("llm", {})
+
     orchestrator = Orchestrator(
         role=role, brain=brain, mcp_client=mcp_client, mailbox=mailbox,
         llm_provider=llm_provider, config=values,
         log_path=Path("logs") / f"{role}_match.json",
+        code_version=__version__,
+        github_commit=_current_git_commit(),
+        group_name=game_cfg.get("group_name"),
+        llm_model=llm_cfg.get("model", "unknown"),
     )
     # Stashed for run_peer, which alone needs to bind the server; nothing
     # else in Orchestrator's own API depends on these.

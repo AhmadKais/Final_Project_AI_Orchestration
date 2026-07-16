@@ -106,6 +106,34 @@ async def test_close_starting_positions_lead_to_a_quick_capture(tmp_path):
     assert police.step < 20  # ended before exhausting the step budget
 
 
+async def test_step0_declarations_are_exchanged_before_the_first_move(tmp_path):
+    import asyncio
+
+    police, thief = make_matched_pair(tmp_path)
+    await asyncio.gather(police.run_game(), thief.run_game())
+
+    # Each side collected its own declaration and received the other's.
+    assert police.own_step0 is not None
+    assert thief.own_step0 is not None
+    assert police.opponent_step0 is not None
+    assert thief.opponent_step0 is not None
+    assert police.opponent_step0["group_name"] == thief.own_step0.group_name
+    assert thief.opponent_step0["group_name"] == police.own_step0.group_name
+
+
+async def test_step0_declarations_are_recorded_in_the_log(tmp_path):
+    import asyncio
+    import json
+
+    police, thief = make_matched_pair(tmp_path)
+    await asyncio.gather(police.run_game(), thief.run_game())
+
+    log_data = json.loads((tmp_path / "police_match.json").read_text())
+    assert "step0" in log_data
+    assert log_data["step0"]["police"] is not None
+    assert log_data["step0"]["thief"] is not None
+
+
 async def test_belief_map_converges_toward_the_true_opponent_after_a_turn(tmp_path):
     police, thief = make_matched_pair(tmp_path, max_moves=1)
 
