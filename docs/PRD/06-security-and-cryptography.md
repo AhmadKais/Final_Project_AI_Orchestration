@@ -25,4 +25,4 @@ Reporting/GUI (Stage 7).
 
 ## Status
 
-Not started. Stubs live in `src/police_thief/domain/{crypto,protocol}.py` and `src/police_thief/shared/system_info.py`.
+**Done.** `domain/crypto.py` (`commit`/`verify`/`audit_log`, matching the book's own SHA-256 code sample in Sec. 5.3.2 exactly), `domain/protocol.py` (envelope build/parse with its own SHA-256 signature, distinct from `H_commit` -- catches tampering with message metadata like step/role, not just the move triple), and `shared/system_info.py` (`collect_step0_declaration` from `/proc/cpuinfo`, `/proc/meminfo`, `nvidia-smi` where present, plus `sign_declaration` via HMAC-SHA256). Covered by `tests/{test_crypto,test_protocol,test_system_info}.py` (19 tests). All previously-skipped crypto tests now run for real -- the suite has zero skips.

@@ -22,4 +22,4 @@ Cryptographic hardening — deliberately deferred to Stage 6, so a network fault
 
 ## Status
 
-Not started. Deployment/config task, not a new source module.
+**Blocked on user action, not something I can complete autonomously.** This stage needs (a) a tunneling-tool account/authtoken belonging to you, and (b) a second machine on a different network to prove NAT traversal for real -- neither exists in this sandbox, and I won't create accounts on your behalf. The code side has been ready since Stage 2 (`infra/mcp_server.py:run_server` already binds to a real host:port, verified with an actual OS-level HTTP smoke test, not just in-memory). A step-by-step runbook is in [`docs/TUNNELING.md`](../TUNNELING.md) for when you're ready to run it yourself.

@@ -13,4 +13,12 @@ from police_thief.domain.strategy.brain_base import BrainBase
 
 class HeuristicBrain(BrainBase):
     def _pick_move(self, board: Board, own_pos: Coord, belief: BeliefMap) -> Move:
-        raise NotImplementedError
+        target = belief.arg_max()
+        legal = board.legal_moves(own_pos)
+
+        def resulting_distance(move: Move) -> int:
+            return belief.manhattan_distance(board.destination(own_pos, move), target)
+
+        if self.role == "police":
+            return min(legal, key=resulting_distance)
+        return max(legal, key=resulting_distance)

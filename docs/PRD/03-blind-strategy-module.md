@@ -26,4 +26,4 @@ Belief maps under uncertainty (Stage 4 introduces the actual uncertainty this mo
 
 ## Status
 
-Not started. Stubs live in `src/police_thief/domain/strategy/`.
+**Done.** `BrainBase.pick_move` legality wrapper, `HeuristicBrain._pick_move` (Manhattan-distance greedy movement -- Cop minimizes, Robber maximizes), and `BeliefMap.arg_max`/`manhattan_distance` (the two belief-map methods this stage needs; `update_from_scent`/`update_from_hint` stay stubbed for Stage 4's actual uncertainty) implemented in `src/police_thief/domain/strategy/` and `domain/belief.py`. Covered by `tests/test_strategy.py` (9 tests), including a full run-to-target simulation proving the shortest-path acceptance criterion with no manual intervention.

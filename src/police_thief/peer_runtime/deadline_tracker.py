@@ -20,7 +20,7 @@ class DeadlineTracker:
         self.started_at = time.monotonic()
 
     def is_expired(self) -> bool:
-        raise NotImplementedError
+        return (time.monotonic() - self.started_at) > self.timeout_sec
 
     def remaining(self) -> float:
-        raise NotImplementedError
+        return max(0.0, self.timeout_sec - (time.monotonic() - self.started_at))

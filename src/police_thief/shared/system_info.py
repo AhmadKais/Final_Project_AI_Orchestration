@@ -7,7 +7,14 @@ a JSON string and signed before the first move.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+import hmac
+import json
+import os
+import platform
+import shutil
+import subprocess
+from dataclasses import asdict, dataclass
 
 
 @dataclass(frozen=True)
@@ -25,13 +32,68 @@ class Step0Declaration:
     sub_game_number: int
 
 
+def _cpu_freq_mhz() -> float:
+    """Best-effort CPU frequency from /proc/cpuinfo (Linux). Not fatal if
+    unavailable -- computational fairness only needs a good-faith reading,
+    not a guaranteed one on every platform."""
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if line.lower().startswith("cpu mhz"):
+                    return float(line.split(":")[1].strip())
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0.0
+
+
+def _ram_gb() -> float:
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    kb = int(line.split()[1])
+                    return round(kb / (1024 * 1024), 2)
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0.0
+
+
+def _gpu_info() -> tuple[str | None, float | None]:
+    if not shutil.which("nvidia-smi"):
+        return None, None
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5, check=True,
+        ).stdout.strip()
+        name, vram_mib = out.split(",")
+        return name.strip(), round(float(vram_mib.strip()) / 1024, 2)
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return "GPU detected (nvidia-smi query failed)", None
+
+
 def collect_step0_declaration(*, code_version: str, github_commit: str,
                                group_name: str, sub_game_number: int,
                                llm_model: str) -> Step0Declaration:
     """Gather live hardware/software facts for this machine."""
-    raise NotImplementedError
+    gpu, vram_gb = _gpu_info()
+    return Step0Declaration(
+        os_name=f"{platform.system()} {platform.release()}",
+        cpu_cores=os.cpu_count() or 0,
+        cpu_freq_mhz=_cpu_freq_mhz(),
+        ram_gb=_ram_gb(),
+        gpu=gpu,
+        vram_gb=vram_gb,
+        llm_model=llm_model,
+        code_version=code_version,
+        github_commit=github_commit,
+        group_name=group_name,
+        sub_game_number=sub_game_number,
+    )
 
 
 def sign_declaration(declaration: Step0Declaration, signing_key: bytes) -> str:
-    """Cryptographically sign the declaration so it cannot be forged after the fact."""
-    raise NotImplementedError
+    """HMAC-SHA256 over the canonical declaration, so it cannot be forged
+    or altered after the fact without invalidating the signature."""
+    canonical = json.dumps(asdict(declaration), sort_keys=True, separators=(",", ":"))
+    return hmac.new(signing_key, canonical.encode("utf-8"), hashlib.sha256).hexdigest()

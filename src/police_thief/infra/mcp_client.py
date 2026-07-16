@@ -2,9 +2,10 @@
 (Table 1). Every request carries an Expiry Deadline (Sec. 8.4.1) -- a missed
 deadline is a failure, never an invitation to keep waiting.
 
-Stage 2 scope only (Sec. 10.3.2): `send_move` exchanges a plain geometric
-move (role/move/step). Stage 6 layers Commit-Reveal (commit/ack/reveal/
-final-audit/capture-claim) on top of this same transport.
+`send_move` exchanges a plain geometric move (role/move/step, Stage 2).
+`send_commit` / `send_ack` / `send_reveal` / `send_final_audit` /
+`send_capture_claim` drive the full Commit-Reveal conversation (Sec. 5.3)
+over the same transport.
 """
 
 from __future__ import annotations
@@ -31,29 +32,43 @@ class OpponentClient:
         self.opponent_url = opponent_url
         self.response_timeout_sec = response_timeout_sec
 
-    async def send_move(self, *, role: str, move: Move | str, step: int) -> dict:
-        """Call the opponent's `receive_move` tool with a plain geometric
-        move. Raises TimeoutError (not McpError) if no response arrives
-        within `response_timeout_sec`, so callers can treat a timeout as
-        the deliberate failure mode Sec. 8.4.1 requires -- never silently
-        keep waiting.
-        """
-        move_value = move.value if isinstance(move, Move) else move
+    async def _call(self, tool_name: str, arguments: dict) -> dict:
+        """Shared call path: every send_* method routes through here so the
+        timeout-to-TimeoutError translation (Sec. 8.4.1) lives in one place."""
         async with Client(self.opponent_url) as client:
             try:
                 result = await client.call_tool(
-                    "receive_move",
-                    {"role": role, "move": move_value, "step": step},
-                    timeout=self.response_timeout_sec,
+                    tool_name, arguments, timeout=self.response_timeout_sec,
                 )
             except McpError as exc:
                 if exc.error.code == _TIMEOUT_ERROR_CODE:
                     raise TimeoutError(
-                        f"receive_move to {self.opponent_url!r} timed out "
+                        f"{tool_name} to {self.opponent_url!r} timed out "
                         f"after {self.response_timeout_sec}s"
                     ) from exc
                 raise
             return result.data
 
-    # Stage 6 adds send_commit / send_ack / send_reveal / send_final_audit /
-    # send_capture_claim here once Commit-Reveal (Sec. 5.3) is implemented.
+    async def send_move(self, *, role: str, move: Move | str, step: int) -> dict:
+        """Call the opponent's `receive_move` tool with a plain geometric move."""
+        move_value = move.value if isinstance(move, Move) else move
+        return await self._call("receive_move", {"role": role, "move": move_value, "step": step})
+
+    async def send_commit(self, *, role: str, step: int, h_commit: str) -> dict:
+        return await self._call("receive_commit", {"role": role, "step": step, "h_commit": h_commit})
+
+    async def send_ack(self, *, role: str, step: int) -> dict:
+        return await self._call("receive_ack", {"role": role, "step": step})
+
+    async def send_reveal(self, *, role: str, step: int, move: Move | str, hint: str, intent: str) -> dict:
+        move_value = move.value if isinstance(move, Move) else move
+        return await self._call(
+            "receive_reveal",
+            {"role": role, "step": step, "move": move_value, "hint": hint, "intent": intent},
+        )
+
+    async def send_final_audit(self, *, role: str, nonces: list[str]) -> dict:
+        return await self._call("receive_final_audit", {"role": role, "nonces": nonces})
+
+    async def send_capture_claim(self, *, role: str, claimed: bool) -> dict:
+        return await self._call("receive_capture_claim", {"role": role, "claimed": claimed})

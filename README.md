@@ -4,7 +4,7 @@ Course final project for *Orchestration of AI Agents*, University of Haifa. Two 
 
 Full translated specification: [`police_thief_p2p_EN.md`](police_thief_p2p_EN.md) (translated from the original Hebrew, [`police_thief_p2p.pdf`](police_thief_p2p.pdf)).
 
-**Status: Stages 1-2 implemented.** Stage 1 (Base Logic: `domain/board.py`, `domain/rules.py`, `domain/scoring.py`) and Stage 2 (Basic FastMCP Infrastructure: `infra/mcp_server.py`, `infra/mcp_client.py` -- plain geometric moves over `localhost`, no crypto/scent/language yet) are real, tested code. Everything else under `src/police_thief/` is still a stub (`raise NotImplementedError`), to be filled in stage by stage per `docs/PLAN.md`.
+**Status: playable end-to-end.** All 8 development stages (`docs/PLAN.md`) are implemented and tested except Stage 5 (Cloud Exposure and Tunneling), which is genuinely blocked on your own tunneling-tool account and a second machine (see `docs/TUNNELING.md`) -- everything the code side needs for it has been ready since Stage 2. Two `Orchestrator`s can play a complete, cryptographically-verified game against each other right now (proven by `tests/test_orchestrator_integration.py`); real network deployment (`simulation_sdk.run_peer`) uses the identical code path, just pointed at a real opponent URL instead of an in-process one. 147 tests, 146 passing, 1 skipped (no display/`tkinter` in the dev sandbox this was built in).
 
 ## Architecture
 
@@ -37,7 +37,7 @@ The Cop's and Robber's code run as two fully separate processes, selected at lau
 uv sync
 ```
 
-## Running (once implemented)
+## Running
 
 ```bash
 # Terminal 1
@@ -49,9 +49,11 @@ uv run python -m police_thief peer --role thief
 uv run python -m police_thief replay --log logs/police_match.json
 ```
 
+Both peers need real, reachable `opponent_url`s in their `config/<role>/game.toml` -- `localhost` ports for same-machine testing, or public tunnel URLs for real league play (`docs/TUNNELING.md`).
+
 ## Development order
 
-Build in the seven layered stages defined in [`docs/PLAN.md`](docs/PLAN.md) / [`docs/PRD/`](docs/PRD/) — each stage must run end-to-end before the next begins (spec Chapter 10). See [`docs/TODO.md`](docs/TODO.md) for the current task breakdown and [`docs/STRATEGY.md`](docs/STRATEGY.md) for how to plug in your own movement-policy brain.
+Built in the eight layered stages defined in [`docs/PLAN.md`](docs/PLAN.md) / [`docs/PRD/`](docs/PRD/) — each stage ran end-to-end before the next began (spec Chapter 10; Stage 8 is a courtesy addition that wires 1-7 into an actually-runnable game). See [`docs/TODO.md`](docs/TODO.md) for the current task breakdown and [`docs/STRATEGY.md`](docs/STRATEGY.md) for how to plug in your own movement-policy brain.
 
 ## Tests
 
@@ -59,7 +61,7 @@ Build in the seven layered stages defined in [`docs/PLAN.md`](docs/PLAN.md) / [`
 uv run pytest
 ```
 
-`test_board.py`, `test_rules.py`, `test_scoring.py`, `test_mcp_infra.py`, and `test_state_machine.py` pass (Stages 1-2 + the always-available state machine). `test_scent.py` and `test_crypto.py` are still skipped, each pointing at the PRD stage (4 and 6) that unblocks them.
+146 of 147 tests pass; the one skip is `test_live_gui.py`'s Tkinter widget-construction test, which needs a real display and `python3-tk` (not present in the sandbox this was built in — the pure heatmap/banner logic it depends on is fully tested). The centerpiece is `tests/test_orchestrator_integration.py`: two `Orchestrator`s, wired to each other's in-process FastMCP servers, play a complete game and produce a log that cryptographically re-verifies end to end.
 
 ---
 
@@ -74,4 +76,4 @@ The final README (in **each** of the two submission repositories, Cop and Robber
 5. **Screenshots** — Live GUI belief map, and Replay App showing `Verified OK`.
 6. **A link to the companion repository** (Cop ↔ Robber).
 
-*(Not written yet — this is a scaffold. Fill in once Stages 1-7 are implemented and at least two league matches have been played, per the submission checklist in `docs/TODO.md`.)*
+*(Not written yet. The system is playable end-to-end; what's left before this section can be filled in is Stage 5 (a real tunneled connection to another machine, blocked on your accounts) and at least two real league matches, per the submission checklist in `docs/TODO.md`.)*

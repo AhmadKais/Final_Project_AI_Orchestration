@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -31,25 +32,31 @@ class GameConfig:
 
 def load_shared_config(path: Path) -> dict[str, Any]:
     """Load config/game.json. Raises if the file is missing or malformed."""
-    raise NotImplementedError
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def load_private_config(path: Path) -> dict[str, Any]:
     """Load config/<role>/game.toml."""
-    raise NotImplementedError
+    with open(path, "rb") as f:
+        return tomllib.load(f)
 
 
 def merge(shared: dict[str, Any], private: dict[str, Any]) -> dict[str, Any]:
-    """Overlay: shared JSON keys win over private TOML keys."""
-    raise NotImplementedError
+    """Overlay: shared JSON keys win over private TOML keys (Appendix B --
+    the private file can never weaken a signed condition)."""
+    return {**private, **shared}
 
 
 def config_sha256(shared: dict[str, Any]) -> str:
     """Canonical (sorted-keys, fixed-separator) SHA-256 of the shared config,
     used to prove both peers agreed on identical game physics (Sec. 5.5)."""
-    raise NotImplementedError
+    canonical = json.dumps(shared, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load_game_config(role: Role, config_root: Path) -> GameConfig:
     """Convenience entry point: load + merge + return a GameConfig for `role`."""
-    raise NotImplementedError
+    shared = load_shared_config(config_root / "game.json")
+    private = load_private_config(config_root / role / "game.toml")
+    return GameConfig(role=role, values=merge(shared, private))

@@ -19,7 +19,10 @@ class QuotaManager:
     _count: int = 0
 
     def allow(self) -> bool:
-        raise NotImplementedError
+        if self._count >= self.daily_limit:
+            return False
+        self._count += 1
+        return True
 
 
 @dataclass
@@ -36,18 +39,33 @@ class TokenBucket:
         self.last = time.monotonic()
 
     def _refill(self) -> None:
-        raise NotImplementedError
+        now = time.monotonic()
+        elapsed = now - self.last
+        self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+        self.last = now
 
     def allow(self, cost: float = 1.0) -> bool:
-        raise NotImplementedError
+        self._refill()
+        if self.tokens >= cost:
+            self.tokens -= cost
+            return True
+        return False
 
 
 class DOSDetector:
     """Flags anomalous send patterns (e.g. an infinite-loop bug) and locks
     the whole pipeline (circuit breaker) to protect the account."""
 
+    def __init__(self, *, max_sends: int = 5, window_sec: float = 10.0):
+        self.max_sends = max_sends
+        self.window_sec = window_sec
+
     def check(self, recent_send_timestamps: list[float]) -> bool:
-        raise NotImplementedError
+        """True if it's safe to proceed; False if the recent pattern looks
+        like a bug/infinite loop and the pipeline should lock (Fig. 13)."""
+        now = time.monotonic()
+        recent = [t for t in recent_send_timestamps if now - t <= self.window_sec]
+        return len(recent) < self.max_sends
 
 
 class Gatekeeper:
@@ -58,6 +76,17 @@ class Gatekeeper:
         self.quota = quota
         self.bucket = bucket
         self.dos = dos
+        self._recent_sends: list[float] = []
 
     def try_send(self, send_fn, *args, **kwargs):
-        raise NotImplementedError
+        """Route a send through all three gates; returns send_fn's result,
+        or None if blocked at any gate. A block is an expected outcome
+        (fail fast, Fig. 13), not an error -- never raises on its own."""
+        if not self.quota.allow():
+            return None
+        if not self.bucket.allow():
+            return None
+        if not self.dos.check(self._recent_sends):
+            return None
+        self._recent_sends.append(time.monotonic())
+        return send_fn(*args, **kwargs)

@@ -33,4 +33,10 @@ class BrainBase(ABC):
     def pick_move(self, board: Board, own_pos: Coord, belief: BeliefMap) -> Move:
         """Public entry point used by PeerRuntime; wraps `_pick_move` with
         legality validation."""
-        raise NotImplementedError
+        move = self._pick_move(board, own_pos, belief)
+        if not board.is_legal_move(own_pos, move):
+            raise ValueError(
+                f"{type(self).__name__}._pick_move returned illegal move "
+                f"{move!r} from {own_pos}"
+            )
+        return move

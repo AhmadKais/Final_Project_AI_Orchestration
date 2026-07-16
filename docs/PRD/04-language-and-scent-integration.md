@@ -25,4 +25,4 @@ Public networking (Stage 5), Commit-Reveal (Stage 6).
 
 ## Status
 
-Not started. Stubs live in `src/police_thief/domain/{scent,belief}.py` and `src/police_thief/infra/llm/`.
+**Done** (template provider only; `ollama`/`claude_api`/`claude_cli` providers remain stubbed -- lower priority since `template` is the default and the spec explicitly allows playing the entire series at zero tokens in `template`/`ollama` mode). Implemented: `ScentField.emit`/`.decay` (Gaussian radial falloff calibrated to spec Fig. 4's reference values), `BeliefMap.update_from_scent`/`.update_from_hint` (deterministic direction-keyword parser + Bayesian renormalization), `TemplateProvider`. Covered by `tests/{test_scent,test_belief_updates,test_llm_template}.py` (23 tests). `HeuristicBrain` needed no changes -- it already consumes whatever `BeliefMap` it's given via `arg_max()`, whether built from ground truth (Stage 3 tests) or real scent+hint evidence (this stage). Wiring `update_from_scent`/`update_from_hint` into an actual per-turn call sequence is Orchestrator work (Stage 8 / the end-to-end wiring task).

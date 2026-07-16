@@ -15,6 +15,11 @@ Build in the seven layered stages defined in `docs/PRD/`, in order, per spec Cha
 | 5 | Cloud Exposure and Tunneling (public network) | [05-cloud-exposure-and-tunneling.md](PRD/05-cloud-exposure-and-tunneling.md) |
 | 6 | Security and Cryptography (Commit-Reveal, Step-0) | [06-security-and-cryptography.md](PRD/06-security-and-cryptography.md) |
 | 7 | Reporting and Visualization Shell (Gmail, GUI, Replay) | [07-reporting-and-visualization-shell.md](PRD/07-reporting-and-visualization-shell.md) |
+| 8 | Orchestrator Integration (wiring 1-7 into a runnable game loop) | [08-orchestrator-integration.md](PRD/08-orchestrator-integration.md) |
+
+## Status: all 8 stages implemented
+
+Stages 1-4 and 6-8 are done and tested (146 tests passing, 1 skipped for lack of a display/`tkinter` in this sandbox). Stage 5 (Cloud Exposure and Tunneling) is genuinely blocked on user action -- it needs your own ngrok/Localtonet account and a second machine on a different network; see [`docs/TUNNELING.md`](../TUNNELING.md). Stage 8 is a courtesy addition beyond the book's own 7 numbered stages (Chapter 8's Orchestrator pattern is woven through all of them, not assigned its own row in Table 3) -- it's what proves Stages 1-7 actually work together, not just in isolation.
 
 ## Milestone discipline
 

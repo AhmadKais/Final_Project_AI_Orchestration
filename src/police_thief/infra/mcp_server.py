@@ -4,10 +4,12 @@ Each agent runs its own server instance (local truth) and is simultaneously
 a client of the opponent's server (infra/mcp_client.py) -- full symmetry,
 no central server.
 
-Stage 2 scope only (Sec. 10.3.2): the `receive_move` tool carries a plain
-geometric move (role/move/step) with no cryptographic signature, no scent,
-no natural language. Commit-Reveal wraps this same conversation in Stage 6
-(Sec. 5.3); the tool surface will grow then, not change shape now.
+`receive_move` is the Stage 2 plain-geometric-move tool (role/move/step, no
+crypto). Stage 6 layers the full Commit-Reveal conversation on top of the
+same transport: `receive_commit` / `receive_ack` / `receive_reveal` /
+`receive_final_audit` / `receive_capture_claim` (Sec. 5.3) -- each message
+kind gets its own queue so the Orchestrator can await exactly the kind it
+needs at each turn phase without cross-kind ordering interference.
 """
 
 from __future__ import annotations
@@ -25,25 +27,30 @@ _LEGAL_ROLES = {"police", "thief"}
 
 @dataclass
 class MoveMailbox:
-    """Async-safe inbox for moves this server has received. The run loop
-    (Stage 8's Orchestrator, not yet built) will `await get()` from it;
-    for now tests and manual runs consume it directly."""
+    """Async-safe, per-message-kind inboxes for everything this server has
+    received. `put`/`get`/`empty()` are Stage 2 aliases for the `moves`
+    queue specifically; Stage 6 message kinds each get their own queue."""
 
-    _queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    moves: asyncio.Queue = field(default_factory=asyncio.Queue)
+    commits: asyncio.Queue = field(default_factory=asyncio.Queue)
+    acks: asyncio.Queue = field(default_factory=asyncio.Queue)
+    reveals: asyncio.Queue = field(default_factory=asyncio.Queue)
+    final_audits: asyncio.Queue = field(default_factory=asyncio.Queue)
+    capture_claims: asyncio.Queue = field(default_factory=asyncio.Queue)
 
     async def put(self, message: dict) -> None:
-        await self._queue.put(message)
+        await self.moves.put(message)
 
     async def get(self) -> dict:
-        return await self._queue.get()
+        return await self.moves.get()
 
     def empty(self) -> bool:
-        return self._queue.empty()
+        return self.moves.empty()
 
 
 def build_server(name: str, mailbox: MoveMailbox) -> FastMCP:
-    """Construct the FastMCP instance and register the Stage-2 `receive_move`
-    tool. Invalid roles/moves are rejected in the tool's return value
+    """Construct the FastMCP instance and register the tool surface.
+    Invalid roles/moves are rejected in the tool's return value
     (`accepted: False`), mirroring the book's own minimal-server example
     (Sec. 2.3.2) rather than raising through the MCP transport.
     """
@@ -56,8 +63,43 @@ def build_server(name: str, mailbox: MoveMailbox) -> FastMCP:
             return {"accepted": False, "error": f"unknown role {role!r}"}
         if move not in _LEGAL_MOVE_VALUES:
             return {"accepted": False, "error": f"unknown move {move!r}"}
-        await mailbox.put({"role": role, "move": move, "step": step})
+        await mailbox.moves.put({"role": role, "move": move, "step": step})
         return {"accepted": True, "role": role, "move": move, "step": step}
+
+    @mcp.tool
+    async def receive_commit(role: str, step: int, h_commit: str) -> dict:
+        """Receive a sealed commitment -- content unknown until Reveal (Sec. 5.3.1)."""
+        await mailbox.commits.put({"role": role, "step": step, "h_commit": h_commit})
+        return {"accepted": True}
+
+    @mcp.tool
+    async def receive_ack(role: str, step: int) -> dict:
+        """Acknowledge the opponent's commitment is locked in (Sec. 5.3.2)."""
+        await mailbox.acks.put({"role": role, "step": step})
+        return {"accepted": True}
+
+    @mcp.tool
+    async def receive_reveal(role: str, step: int, move: str, hint: str, intent: str) -> dict:
+        """Receive the revealed move + verbal hint (Nonce still hidden, Sec. 5.3.2)."""
+        if move not in _LEGAL_MOVE_VALUES:
+            return {"accepted": False, "error": f"unknown move {move!r}"}
+        await mailbox.reveals.put(
+            {"role": role, "step": step, "move": move, "hint": hint, "intent": intent}
+        )
+        return {"accepted": True}
+
+    @mcp.tool
+    async def receive_final_audit(role: str, nonces: list[str]) -> dict:
+        """Receive all Nonces at end-of-game for the mutual log audit (Sec. 5.4)."""
+        await mailbox.final_audits.put({"role": role, "nonces": nonces})
+        return {"accepted": True}
+
+    @mcp.tool
+    async def receive_capture_claim(role: str, claimed: bool) -> dict:
+        """Receive a Capture Claim; the Robber is under cryptographic
+        obligation to respond truthfully once revealed (Sec. 3.5)."""
+        await mailbox.capture_claims.put({"role": role, "claimed": claimed})
+        return {"accepted": True}
 
     return mcp
 
