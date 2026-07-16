@@ -1,6 +1,6 @@
 # Gmail API / OAuth 2.0 Setup (Appendix A)
 
-> This is a web signup + consent flow through the Google Cloud Console -- it genuinely cannot be done autonomously; there's no CLI or file-download equivalent (unlike Stage 5's tunneling, where the ngrok *binary* could be fetched but the *account* still couldn't). The code side (`infra/email_sender.py`) is already implemented and tested against a mock -- this doc is the five-step checklist for the one part that has to be you.
+> **Done and verified for real.** Steps A-E below were completed (Cloud project, consent screen, `gmail.send`-only scope, `credentials.json`, `token.json`) and confirmed end-to-end: `get_service()` reused `token.json` without re-prompting (proves the refresh token works for long-term autonomy), and `send_report()` sent a real email with a real Gmail message ID, carrying an actual sample report attachment. Kept below as a reference for anyone re-running this setup (e.g. after rotating credentials, or setting up the second team's repo).
 
 ## The five steps (spec Appendix A Sec. 1), in order
 
@@ -55,15 +55,18 @@ send_report(service, "rmisegal+uoh26finalgame@gmail.com", "Test", Path("docs/sam
 
 **If either is ever committed, deleting it in a later commit is not enough** -- it's still in the git history. Rotate the credentials in the Cloud Console instead.
 
-## What's already done vs. what needs you
+## What's done
 
-| Already done | Needs you |
+| Item | Status |
 |---|---|
-| `get_service()`/`send_report()` implemented exactly per Appendix A's reference flow | Steps A-D: create the Cloud project, consent screen, scope, and `credentials.json` (a personal Google account signup + console flow, not something I can do) |
-| `send_report()` fully tested against a mocked Gmail service (`tests/test_email_sender.py`) | Step E: the one-time browser consent approval |
-| `.gitignore` already excludes both secret files | Nothing -- already correct |
-| `Gatekeeper` (quota/rate-limit/DOS protection) wraps every real send | Nothing -- already correct |
+| `get_service()`/`send_report()` implemented exactly per Appendix A's reference flow | Done |
+| `send_report()` fully tested against a mocked Gmail service (`tests/test_email_sender.py`) | Done |
+| `.gitignore` excludes both secret files | Done -- confirmed via `git check-ignore -v` |
+| `Gatekeeper` (quota/rate-limit/DOS protection) wraps every real send | Done |
+| Cloud project, consent screen, `gmail.send`-only scope, `credentials.json` (Steps A-D) | Done (by the user -- a real account signup, not something that can be automated) |
+| First-auth browser consent, `token.json` created (Step E) | Done |
+| A real email actually sent and received, with a real Gmail message ID | Done -- verified, not just configured |
 
 ## Status
 
-Blocked on user action (Google account + Cloud Console signup). Not marked complete in `docs/TODO.md`.
+Fully working. Marked complete in `docs/TODO.md`. The remaining Gmail-related submission item is switching `[email] recipient` in each team's private `config/<role>/game.toml` to the real course address (`rmisegal+uoh26finalgame@gmail.com`) once actual league play starts -- the test above deliberately went to the user's own address instead, to avoid sending test traffic to the real instructor inbox.

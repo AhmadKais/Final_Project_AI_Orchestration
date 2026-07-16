@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 from police_thief.domain.strategy.brain_base import BrainBase
-from police_thief.domain.strategy.heuristic_brain import HeuristicBrain
+from police_thief.domain.strategy.minimax_brain import MinimaxBrain
 from police_thief.infra.llm.base import LLMProvider
 from police_thief.infra.llm.claude_api_provider import ClaudeAPIProvider
 from police_thief.infra.llm.claude_cli_provider import ClaudeCLIProvider
@@ -34,10 +34,11 @@ _PROVIDERS = {
 
 def _build_brain(role: Role, strategy_cfg: dict) -> BrainBase:
     """`[strategy] police_class`/`thief_class` points at `package.module:Class`
-    (Appendix F Table 22); empty/absent runs the shipped HeuristicBrain."""
+    (Appendix F Table 22); empty/absent runs the shipped MinimaxBrain (belief-
+    space minimax search -- see `domain/strategy/minimax_brain.py`)."""
     class_path = strategy_cfg.get(f"{role}_class")
     if not class_path:
-        return HeuristicBrain(role=role)
+        return MinimaxBrain(role=role)
     module_path, _, class_name = class_path.partition(":")
     brain_cls = getattr(importlib.import_module(module_path), class_name)
     return brain_cls(role=role)

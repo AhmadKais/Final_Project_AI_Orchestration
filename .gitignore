@@ -2,6 +2,9 @@
 credentials.json
 token.json
 
+# ngrok authtoken -- NEVER commit (same rationale as the Gmail secrets above)
+tools/ngrok.yml
+
 # Python
 __pycache__/
 *.pyc

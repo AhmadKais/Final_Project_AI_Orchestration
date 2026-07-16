@@ -4,7 +4,7 @@ Course final project for *Orchestration of AI Agents*, University of Haifa. Two 
 
 Full translated specification: [`police_thief_p2p_EN.md`](police_thief_p2p_EN.md) (translated from the original Hebrew, [`police_thief_p2p.pdf`](police_thief_p2p.pdf)).
 
-**Status: playable end-to-end.** All 8 development stages (`docs/PLAN.md`) are implemented and tested, plus all four LLM providers, Step-0 hardware-declaration exchange, and a real background-thread Watchdog. Two things are genuinely blocked on your own action, both requiring a real external account signup I have no way to do (no browser tool, and account creation shouldn't happen on your behalf regardless): Stage 5 tunneling (`tools/ngrok` is pre-downloaded and verified runnable, but opening a tunnel needs your ngrok authtoken -- confirmed directly by hitting `ERR_NGROK_4018`, see `docs/TUNNELING.md`) and Gmail OAuth (`infra/email_sender.py` is implemented and tested against a mock, but real sending needs your own Google Cloud credentials, see `docs/GMAIL_SETUP.md`). Two `Orchestrator`s can play a complete, cryptographically-verified game against each other right now (proven by `tests/test_orchestrator_integration.py`, and by `scripts/generate_sample_reports.py`'s real generated match in `docs/sample_reports/`); real network deployment (`simulation_sdk.run_peer`) uses the identical code path, just pointed at a real opponent URL instead of an in-process one. 182 tests, 181 passing, 1 skipped (no display/`tkinter` in the dev sandbox this was built in). Beyond wiring, `HeuristicBrain` now also places barriers tactically (Cop, never self-trapping -- see `docs/STRATEGY.md`) and the belief map decays toward uniform each turn so a stale high-confidence guess can't get permanently stuck.
+**Status: playable end-to-end, and verified over the real public internet and real Gmail.** All 8 development stages (`docs/PLAN.md`) are implemented and tested, plus all four LLM providers, Step-0 hardware-declaration exchange, and a real background-thread Watchdog. Tunneling (Stage 5) and Gmail OAuth (Appendix A) are both genuinely done, not just coded: the user created real ngrok and Google Cloud accounts, and both were verified with live traffic, not just configuration -- a real move round-tripped through an actual public `*.ngrok-free.app` tunnel back to this project's own FastMCP server (`docs/TUNNELING.md`), and a real email (real Gmail message ID, with a sample report attached) was sent through the real Gmail API, with the refresh token confirmed working for unattended reuse (`docs/GMAIL_SETUP.md`). The only piece left anywhere is running an actual opponent on a second machine for real league play -- a hardware/logistics requirement no amount of local setup can substitute for. Two `Orchestrator`s can play a complete, cryptographically-verified game against each other right now (proven by `tests/test_orchestrator_integration.py`, and by `scripts/generate_sample_reports.py`'s real generated match in `docs/sample_reports/`); real network deployment (`simulation_sdk.run_peer`) uses the identical code path, just pointed at a real opponent URL instead of an in-process one. 182 tests, 181 passing, 1 skipped (no display/`tkinter` in the dev sandbox this was built in). Beyond wiring, `HeuristicBrain` now also places barriers tactically (Cop, never self-trapping -- see `docs/STRATEGY.md`) and the belief map decays toward uniform each turn so a stale high-confidence guess can't get permanently stuck.
 
 ## Architecture
 
@@ -65,15 +65,43 @@ uv run pytest
 
 ---
 
-## Academic report (fill in before submission — spec Sec. 9.4.2)
+## Academic report (spec Sec. 9.4.2)
 
-The final README (in **each** of the two submission repositories, Cop and Robber, cross-linked) must additionally contain:
+Mandatory content for the README of **each** of the two eventual submission repositories (Cop and Robber, cross-linked). Items 1-4 are written for real below; items 5-6 need artifacts this environment can't produce (a display, and the actual second repo).
 
-1. **The chosen Dec-POMDP model** — state space, observations, uncertainty formalization (Chapter 1).
-2. **FastMCP orchestration dilemmas** — queue management, network-failure handling, Gatekeeper/Orchestrator design choices (Chapters 2, 8).
-3. **The strategies implemented** — heuristics, LLM-assisted, and/or Q-Learning, and why (Chapter 6).
-4. **Learning curves**, if reinforcement learning was used.
-5. **Screenshots** — Live GUI belief map, and Replay App showing `Verified OK`.
-6. **A link to the companion repository** (Cop ↔ Robber).
+### 1. The chosen Dec-POMDP model
 
-*(Not written yet. The system is playable end-to-end; what's left before this section can be filled in is Stage 5 (a real tunneled connection to another machine, blocked on your accounts) and at least two real league matches, per the submission checklist in `docs/TODO.md`.)*
+- **State** `S`: the objective board — `(cop_pos, thief_pos, barriers)`. Neither agent ever observes it directly; `Board` exists as each `Orchestrator`'s own reconstruction, kept accurate only because Commit-Reveal makes every revealed move truthful.
+- **Observation** `Ω_i`: each agent's own position (exact), the *opponent's* `ScentField` (a decaying spatial signal built from the opponent's historical positions — never its current one), and the opponent's verbal hint (natural language, possibly false). `Ω_i` is a strict subset of `S` — this is what "local truth" means concretely.
+- **Action** `A_i`: `{N, S, E, W, STAY}` for the Robber; the Cop additionally may fold a barrier placement into a `STAY` (`domain/protocol.encode_move`).
+- **Transition** `P`: deterministic given both sides' *revealed* moves — no stochastic dynamics. All of this project's uncertainty lives on the observation side, not the transition side; adding transition noise on top of partial observability and adversarial deception would be uncertainty stacked on uncertainty with no way to isolate which one is driving a given loss.
+- **Reward** `R`: the asymmetric scoring table (Table 2), paid once at episode end (capture / survival / technical loss) — sparse and terminal, not per-step. `γ` is therefore not meaningfully exercised within an episode.
+- **Belief approximation**: exact joint Bayesian filtering over `S` is intractable at any real board size (Chapter 1's own point about exhaustive search). `BeliefMap` instead keeps an independent per-cell posterior, updated from two evidence channels (scent intensity, parsed verbal hint) with an explicit forgetting term (`decay_toward_uniform`) — a deliberate practical approximation, not exact POMDP solving, matching the spec's framing that heuristics (not exact inference) are the intended track.
+
+### 2. FastMCP orchestration dilemmas
+
+- **Queue management**: `MoveMailbox` gives every Commit-Reveal message *kind* its own `asyncio.Queue` (moves/commits/acks/reveals/final_audits/capture_claims/step0s) rather than one shared inbox. A single mixed queue was considered and rejected — both peers race independently through turn phases under `asyncio.gather`, and filtering a shared queue by tag would need fragile peek/requeue logic.
+- **Network-failure handling**: every wait goes through `DeadlineTracker`, converting an unresponsive opponent into an explicit `TECHNICAL_LOSS` instead of an indefinite hang (Sec. 8.4.1's "a missed deadline is a failure, not patience").
+- **Gatekeeper vs. Orchestrator — two different patterns for two different problems.** The Orchestrator is a single-gateway *coordinator* for the game's own internal subsystems (state machine, brain, log, deadline tracker, watchdog). The Gatekeeper is a rate-limiting *pipeline* guarding one external, quota-constrained resource (the Gmail API). Conflating them would be a mistake: the Orchestrator has no business knowing about Gmail quotas, and the Gatekeeper has no business knowing about game state.
+- **Two bugs the wiring itself surfaced** (not visible from any single subsystem's own unit tests): `BeliefMap.arg_max()` raised on an empty map — fine in isolated Stage-3 tests, fatal on turn 0 of a real game, where no evidence exists yet. And the state machine was missing `COMMITTING -> TECHNICAL_LOSS`, even though a network failure can happen while awaiting an opponent's *ack*, not only during `AWAITING_REVEAL`.
+- **Watchdog placement**: first considered as another `asyncio.Task` in the same event loop as the game coroutine — rejected, since a genuinely CPU-bound freeze in the main loop (e.g. a buggy custom strategy brain) would starve a same-loop task too, defeating the point of an "independent" monitor (Sec. 8.4.2). Implemented on a real background OS thread instead.
+
+### 3. The strategies implemented
+
+- **Movement** — `HeuristicBrain`, the pure-heuristics track (Sec. 6.3.1): no reinforcement learning. Cop minimizes Manhattan distance to `belief.arg_max()`; Robber maximizes it, tie-broken by which resulting cell keeps the most future legal moves open (a one-ply lookahead against backing into a dead end).
+- **Barrier placement** — the Cop considers sealing one of the target's orthogonal escape routes only when (a) within Manhattan distance 2-3 of the believed target, and (b) doing so provably leaves at least one other move that still makes progress. That second check exists because integration testing found a real self-trapping bug — the spec's own Sec. 3.4 warns "a barrier placed greedily can trap the Cop itself behind a wall it built," and the first version of this heuristic did exactly that.
+- **Belief** — an independent per-cell Bayesian posterior from the opponent's scent field (likelihood ∝ 1 + intensity) and their verbal hint (a deterministic direction-keyword parser — not an LLM, keeping spatial reasoning out of the language model's hands per Sec. 6.5), plus a decay-toward-uniform forgetting term added after a real "stuck belief" bug (a belief that reached ~99.9% confidence at a stale cell took 10+ turns of contradicting evidence to correct without it).
+- **Verbal layer** — `TemplateProvider` (zero-token, default) produces flavor text structurally decoupled from the actual, cryptographically committed move. `OllamaProvider`/`ClaudeAPIProvider`/`ClaudeCLIProvider` are also fully implemented for real language-model bluffing, selectable via `[trash_talk] provider` with no code changes.
+- **Why heuristics, not RL**: the course did not teach reinforcement learning, and the spec explicitly states heuristics alone are fully competitive (Sec. 6.3.1). `BrainBase` is intentionally decoupled from any particular decision method so a Q-Learning subclass (Bellman-equation update, epsilon-greedy exploration) could be added later without touching the Orchestrator at all.
+
+### 4. Learning curves
+
+N/A — no reinforcement learning was used (see above). A team adding a Q-Learning `BrainBase` subclass on top of this codebase would put its learning curves here.
+
+### 5. Screenshots — still needed
+
+Belief-map heatmap (Live GUI) and `Verified OK` (Replay App) screenshots need a real display and `python3-tk`, neither present in the sandbox this was built in. `interface/live_gui.py`'s rendering logic is implemented and its pure color/banner computation is tested (`tests/test_live_gui.py`); only the actual widget screenshot is outstanding.
+
+### 6. Companion repository link — still needed
+
+Depends on the eventual Cop/Robber repo split (submission checklist in `docs/TODO.md`, explicitly "do last" — a structural decision for you to make, not something to do speculatively ahead of it).

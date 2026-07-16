@@ -86,6 +86,18 @@ class Orchestrator:
         self.pheromone_center_intensity = pher_cfg["pheromone_center_intensity"]
         self.pheromone_decay = pher_cfg["pheromone_decay"]
         self.pheromone_grid_size = pher_cfg["pheromone_grid_size"]
+        # How fast THIS peer's own belief posterior forgets old evidence
+        # (BeliefMap.decay_toward_uniform). Deliberately NOT the same as
+        # pheromone_decay: that rate is shared physics both sides must
+        # agree on (it governs what the opponent's scent trail literally
+        # looks like on the wire); this one only shapes how *I* privately
+        # interpret my own evidence, so it needs no negotiation and can be
+        # tuned independently. At pheromone_decay's own rate (0.10) a
+        # confident-but-stale belief (e.g. several early deposits stacked
+        # on one cell the opponent has long since left) took 15+ turns to
+        # meaningfully fade -- long enough to stall pursuit against an
+        # opponent whose early moves happened to cluster before scattering.
+        self.belief_forget_rate = pher_cfg.get("belief_forget_rate", 0.4)
         self.hint_max_words = world_cfg.get("hint_max_words", 15)
 
         self.board = Board(
@@ -237,7 +249,7 @@ class Orchestrator:
             field_size=self.pheromone_grid_size,
         )
         self.opponent_scent.decay(self.pheromone_decay)
-        self.belief.decay_toward_uniform(self.pheromone_decay)
+        self.belief.decay_toward_uniform(self.belief_forget_rate)
         self.belief.update_from_scent(self.opponent_scent)
         self.belief.update_from_hint(opponent_reveal["hint"], trust_coefficient=1.0)
 

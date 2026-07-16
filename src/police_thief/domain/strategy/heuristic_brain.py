@@ -36,7 +36,7 @@ class HeuristicBrain(BrainBase):
         if self.role != "police" or len(board.barriers) >= board.max_barriers:
             return None
 
-        target = belief.arg_max()
+        target = belief.arg_max(exclude=cop_pos)
         distance = belief.manhattan_distance(cop_pos, target)
         if not (_BARRIER_MIN_RANGE <= distance <= _BARRIER_MAX_RANGE):
             return None
@@ -73,7 +73,7 @@ class HeuristicBrain(BrainBase):
         if self.role == "police" and self._best_barrier_option(board, own_pos, belief) is not None:
             return Move.STAY  # forgo movement this turn to seal an escape route instead
 
-        target = belief.arg_max()
+        target = belief.arg_max(exclude=own_pos)
         legal = board.legal_moves(own_pos)
 
         if self.role == "police":
