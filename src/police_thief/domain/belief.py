@@ -124,30 +124,42 @@ class BeliefMap:
             likelihood[cell] = factor
         self._apply_likelihood(likelihood)
 
-    def arg_max(self, exclude: Coord | None = None) -> Coord:
+    @staticmethod
+    def _exclusion_set(exclude: Coord | frozenset[Coord] | None) -> frozenset[Coord]:
+        if exclude is None:
+            return frozenset()
+        if isinstance(exclude, tuple):  # a single Coord, not a collection of them
+            return frozenset({exclude})
+        return frozenset(exclude)
+
+    def arg_max(self, exclude: Coord | frozenset[Coord] | None = None) -> Coord:
         """The single most likely opponent cell, argmax_s b(s). Auto-
         initializes a uniform prior if no evidence has been observed yet
         (e.g. turn 0, before any scent/hint update) -- there is always
         SOME cell to aim for, even under total uncertainty.
 
-        `exclude` (typically the caller's own current cell) is dropped
-        before taking the max. A stale scent trail can leave the belief
-        pointing at a cell the caller itself now occupies -- a
-        self-contradiction, not just an unlikely guess: whoever is asking
-        for a move is, by construction, not already standing on the
-        opponent's true cell (`Board.is_capture()`, checked on REAL
-        positions right after every turn's moves are applied, would
-        already have ended the game if that were so). Treating that
-        impossible hypothesis as live makes a Cop freeze in place --
-        "the target is right here" -- while the real target walks away
-        untracked."""
+        `exclude` (a single Coord, or a set of them -- typically the
+        caller's own current cell and/or the board's current barriers) is
+        dropped before taking the max. Both are self-contradictions, not
+        just unlikely guesses: whoever is asking for a move is, by
+        construction, not already standing on the opponent's true cell
+        (`Board.is_capture()`, checked on REAL positions right after every
+        turn's moves are applied, would already have ended the game if
+        that were so) -- and the opponent can never be truly standing on a
+        barriered cell either, since stepping onto one is itself a capture.
+        A stale scent trail doesn't know either fact happened; treating
+        either as a live hypothesis corrupts the belief the same way: a
+        Cop can freeze aiming at its own cell, or a search can rate
+        retreating from a real capture opportunity above taking it because
+        a barriered cell still carries real weight in the average."""
         self._ensure_initialized()
+        excluded = self._exclusion_set(exclude)
         candidates = self.probabilities
-        if exclude is not None and len(candidates) > 1:
-            candidates = {cell: prob for cell, prob in candidates.items() if cell != exclude} or candidates
+        if excluded and len(candidates) > 1:
+            candidates = {cell: prob for cell, prob in candidates.items() if cell not in excluded} or candidates
         return max(candidates, key=candidates.get)
 
-    def top_k(self, k: int, exclude: Coord | None = None) -> list[tuple[Coord, float]]:
+    def top_k(self, k: int, exclude: Coord | frozenset[Coord] | None = None) -> list[tuple[Coord, float]]:
         """The `k` most probable cells with their probabilities renormalized
         to sum to 1 -- a tractable proxy for the full posterior when
         searching the game tree (feeds `strategy/search.py`'s belief-space
@@ -155,9 +167,10 @@ class BeliefMap:
         straight to a single point estimate. `exclude` behaves as in
         `arg_max`."""
         self._ensure_initialized()
+        excluded = self._exclusion_set(exclude)
         items = self.probabilities.items()
-        if exclude is not None and len(self.probabilities) > 1:
-            items = [(cell, prob) for cell, prob in items if cell != exclude] or items
+        if excluded and len(self.probabilities) > 1:
+            items = [(cell, prob) for cell, prob in items if cell not in excluded] or items
         ranked = sorted(items, key=lambda kv: kv[1], reverse=True)[:k]
         total = sum(prob for _, prob in ranked)
         if total <= 0:

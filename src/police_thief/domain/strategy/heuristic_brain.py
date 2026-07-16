@@ -19,8 +19,17 @@ _DIRECTIONAL_MOVES = (Move.NORTH, Move.SOUTH, Move.EAST, Move.WEST)
 
 # Only consider sealing an escape route in this distance window: farther
 # out, a barrier is a bet on a guess that's had less time to firm up and
-# wastes a step of pursuit; at distance <= 1, moving onto (or next to) the
-# target directly is always at least as good as staying to wall it off.
+# wastes a step of pursuit. Distance 1 (adjacent) is deliberately EXCLUDED,
+# not just unhelpful there: the barrier-placement rule only reaches the
+# Cop's own cell or an orthogonal neighbor, and when adjacent, the target's
+# OTHER escape routes (not the shared cell between the two) are always a
+# diagonal offset away -- geometrically out of reach. The only "candidate"
+# that range ever produces there is the Cop's own currently-occupied cell,
+# which is worse than useless: barriering the cell you're standing on
+# makes STAY illegal from it on every later turn (confirmed by a real
+# crash), for a placement that never restricted the target's mobility in
+# the first place (it was never going to walk onto the Cop's own cell --
+# that's simply a capture by moving there).
 _BARRIER_MIN_RANGE = 2
 _BARRIER_MAX_RANGE = 3
 
@@ -36,15 +45,23 @@ class HeuristicBrain(BrainBase):
         if self.role != "police" or len(board.barriers) >= board.max_barriers:
             return None
 
-        target = belief.arg_max(exclude=cop_pos)
+        # Excludes the Cop's own cell AND every barriered cell: neither is
+        # a physically possible current position for the target (see
+        # BeliefMap.arg_max's docstring) -- a stale scent trail doesn't
+        # know a cell it once favored later got walled off.
+        target = belief.arg_max(exclude=frozenset(board.barriers) | {cop_pos})
         distance = belief.manhattan_distance(cop_pos, target)
         if not (_BARRIER_MIN_RANGE <= distance <= _BARRIER_MAX_RANGE):
             return None
 
         target_escape_routes = {board.destination(target, m) for m in _DIRECTIONAL_MOVES}
-        candidates = [cop_pos] + [board.destination(cop_pos, m) for m in _DIRECTIONAL_MOVES]
+        # Never the Cop's own cell: sealing where you're currently standing
+        # restricts nothing (the target was never walking onto your cell --
+        # that's a capture-by-moving, not an escape route) and permanently
+        # makes STAY illegal from it afterward.
+        candidates = [board.destination(cop_pos, m) for m in _DIRECTIONAL_MOVES]
         for cell in candidates:
-            if cell == target or not board.in_bounds(cell) or cell in board.barriers:
+            if cell == target or cell == cop_pos or not board.in_bounds(cell) or cell in board.barriers:
                 continue
             if cell in target_escape_routes and self._leaves_a_path_forward(board, cop_pos, target, cell):
                 return cell
@@ -73,7 +90,7 @@ class HeuristicBrain(BrainBase):
         if self.role == "police" and self._best_barrier_option(board, own_pos, belief) is not None:
             return Move.STAY  # forgo movement this turn to seal an escape route instead
 
-        target = belief.arg_max(exclude=own_pos)
+        target = belief.arg_max(exclude=frozenset(board.barriers) | {own_pos})
         legal = board.legal_moves(own_pos)
 
         if self.role == "police":

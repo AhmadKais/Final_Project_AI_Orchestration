@@ -16,6 +16,22 @@ places more than one barrier within a handful of turns. Barriers block
 BOTH sides symmetrically (`Board.is_legal_move` doesn't distinguish role),
 so distance/area here use one shared blocked-cell set for both.
 
+The REAL turn is simultaneous (Sec. 5.3's Commit-Reveal: both sides commit
+blind, then reveal together) -- neither side ever sees the other's this-turn
+move before choosing its own. `score_moves`/`score_barrier` model that ply
+correctly: for each of my candidate moves, they take the WORST case over
+every move the opponent could simultaneously make (a maximin over the real
+move matrix), not "the opponent reacts after seeing what I just did."
+Getting this wrong at the CURRENT decision is what let two mirrored copies
+of this brain fall into a perpetual oscillation around an adjacent cell --
+each one's search assumed the other could always dodge its exact approach,
+so directly closing in was never worth more than staying at a "safe"
+distance, and neither ever actually committed to the capture. Only the root
+ply gets this exact treatment; `_minimax`'s deeper continuation still uses
+the cheaper alternating approximation, which is a standard, reasonable
+trade-off -- errors several plies out matter far less than getting the
+move actually being played right now correct.
+
 `deadline` (a `time.monotonic()` timestamp) is optional but recommended: it
 bounds worst-case search time regardless of board size, opponent-candidate
 count, or the grading machine's own speed (Step-0 explicitly acknowledges
@@ -184,31 +200,61 @@ def _minimax(
     return best
 
 
+def _worst_simultaneous_continuation(
+    my_dest: Coord, opp_dests: list[Coord], barriers: frozenset[Coord], grid_size: int,
+    continuation_depth: int, cop_role: bool, deadline: float | None,
+) -> float | None:
+    """Given MY resolved destination and every destination the opponent
+    could simultaneously (blindly) choose from their believed current
+    cell, the worst-case continuation value for ME across all of them --
+    correct maximin for a one-shot simultaneous game, in place of assuming
+    the opponent could react to my exact choice. `continuation_depth` plies
+    after this one use the cheaper alternating `_minimax` approximation,
+    resuming with me to move again (both sides already moved this round)."""
+    worst = None
+    for opp_dest in opp_dests:
+        cop_pos, thief_pos = (my_dest, opp_dest) if cop_role else (opp_dest, my_dest)
+        value = _minimax(
+            cop_pos, thief_pos, barriers, grid_size, continuation_depth, cop_role, _NEG_INF, _POS_INF, deadline
+        )
+        if value is None:
+            return None
+        # `value` is always in Cop-perspective units. The opponent picks
+        # whichever of ITS moves is worst for me: low if I'm the Cop (the
+        # Thief wants a low cop-perspective value), high if I'm the Thief
+        # (the Cop wants a high one, which is bad for the Thief).
+        if worst is None or (value < worst if cop_role else value > worst):
+            worst = value
+    return worst
+
+
 def score_moves(
     role: str, board: Board, own_pos: Coord,
     opponent_candidates: list[tuple[Coord, float]], depth: int,
     deadline: float | None = None,
 ) -> dict[Move, float] | None:
-    """This turn's legal moves scored by belief-weighted minimax lookahead,
-    in the mover's own units (higher is always better for `role`). Returns
-    None if `deadline` passes before every move/candidate pair could be
-    scored -- a partial ranking is worse than a known, honest fallback."""
+    """This turn's legal moves scored by belief-weighted, simultaneous-move-
+    correct lookahead, in the mover's own units (higher is always better
+    for `role`). Returns None if `deadline` passes before every move/
+    candidate pair could be scored -- a partial ranking is worse than a
+    known, honest fallback."""
     barriers = frozenset(board.barriers)
     grid_size = board.grid_size
     cop_role = role == "police"
+    continuation_depth = max(depth - 2, 0)
 
     scored: dict[Move, float] = {}
     for move in board.legal_moves(own_pos):
-        dest = board.destination(own_pos, move)
+        my_dest = board.destination(own_pos, move)
         total = 0.0
         for opp_pos, weight in opponent_candidates:
-            if cop_role:
-                value = _minimax(dest, opp_pos, barriers, grid_size, depth - 1, False, _NEG_INF, _POS_INF, deadline)
-            else:
-                value = _minimax(opp_pos, dest, barriers, grid_size, depth - 1, True, _NEG_INF, _POS_INF, deadline)
-            if value is None:
+            opp_dests = _legal_dests(grid_size, barriers, opp_pos)
+            worst = _worst_simultaneous_continuation(
+                my_dest, opp_dests, barriers, grid_size, continuation_depth, cop_role, deadline
+            )
+            if worst is None:
                 return None
-            total += weight * value
+            total += weight * worst
         # Cop-perspective value is already "higher is better" for police;
         # negate for the Thief so both roles maximize their own score.
         scored[move] = total if cop_role else -total
@@ -232,18 +278,27 @@ def score_barrier(
     deadline: float | None = None,
 ) -> float | None:
     """Cop-only: the search value (Cop units) of staying put and sealing
-    `barrier_target` instead of moving. The barrier is added to the static
-    obstacle set for this search only, so it persists through the lookahead
-    horizon -- pricing "wall off an escape route now" against "step closer
-    now" in the same units as `score_moves`, instead of always preferring
-    one over the other by fixed heuristic. Returns None on deadline expiry,
-    same contract as `score_moves`."""
-    barriers = frozenset(board.barriers) | {barrier_target}
+    `barrier_target` instead of moving, in the same simultaneous-correct
+    units as `score_moves`. The Thief's move THIS round is evaluated
+    against the barriers as they stood before this turn -- matching
+    `Orchestrator.run_turn`, where a newly placed barrier is applied only
+    after both sides' reveals, so it can never retroactively block a move
+    the Thief already committed to in the same turn. The continuation
+    plies (after this round) use the new barrier, since sealing it is what
+    the whole decision is for. Returns None on deadline expiry, same
+    contract as `score_moves`."""
+    old_barriers = frozenset(board.barriers)
+    new_barriers = old_barriers | {barrier_target}
     grid_size = board.grid_size
+    continuation_depth = max(depth - 2, 0)
+
     total = 0.0
     for opp_pos, weight in opponent_candidates:
-        value = _minimax(cop_pos, opp_pos, barriers, grid_size, depth - 1, False, _NEG_INF, _POS_INF, deadline)
-        if value is None:
+        opp_dests = _legal_dests(grid_size, old_barriers, opp_pos)
+        worst = _worst_simultaneous_continuation(
+            cop_pos, opp_dests, new_barriers, grid_size, continuation_depth, True, deadline
+        )
+        if worst is None:
             return None
-        total += weight * value
+        total += weight * worst
     return total
