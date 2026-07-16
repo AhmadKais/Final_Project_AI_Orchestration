@@ -2,22 +2,21 @@
 
 > This stage is a deployment/config task, not new source code (spec Sec. 10.3.5). It genuinely cannot be completed autonomously in this environment: it needs (a) your own tunneling-tool account/authtoken, and (b) a second machine on a different network to prove NAT traversal actually works. Follow the steps below yourself; the code side (server binding to `0.0.0.0`) is already in place from Stage 2.
 
-## 1. Install a tunneling tool
+## 1. ngrok is already downloaded
 
-Pick one (ngrok is the spec's primary example):
+`tools/ngrok` (v3.39.9) is pre-downloaded into this repo -- gitignored, since it's a third-party binary, not source. Verify it runs:
 
 ```bash
-# ngrok (https://ngrok.com/download)
-curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-sudo apt update && sudo apt install ngrok
+tools/ngrok version
 ```
 
 Sign up at ngrok.com, grab your authtoken from the dashboard, then:
 
 ```bash
-ngrok config add-authtoken <your-token>
+tools/ngrok config add-authtoken <your-token>
 ```
+
+Without this step, `tools/ngrok http <port>` fails immediately with `ERR_NGROK_4018` ("This ngrok session is not authenticated") -- confirmed directly: as of ngrok v3, opening even a single free HTTP tunnel requires a signed-in account, not just the binary. Creating that account has to be you; it's tied to your email and is a real external signup, not something to do on your behalf.
 
 ## 2. Start your peer's FastMCP server (Stage 2 code, unchanged)
 
@@ -30,7 +29,7 @@ This binds to `0.0.0.0:<my_port>` per `infra/mcp_server.py:run_server` -- alread
 ## 3. Open a tunnel to that port
 
 ```bash
-ngrok http <my_port>
+tools/ngrok http <my_port>
 ```
 
 ngrok prints a public URL like `https://abcd-1-2-3-4.ngrok-free.app`. Your peer's actual MCP endpoint is that URL + `/mcp`.
@@ -56,12 +55,13 @@ uv run python -m police_thief peer --role thief   # while you run --role police
 
 ## What's already proven vs. what needs you
 
-| Already proven (Stage 2) | Needs you to do |
+| Already proven / done | Needs you to do |
 |---|---|
-| `receive_move` tool round-trips correctly | Install ngrok, create an account, get an authtoken |
+| `receive_move` tool round-trips correctly | Create an ngrok account, get an authtoken |
 | Server binds to a real host:port over HTTP (not just in-memory) | Run a peer on an actual second machine/network |
 | Timeout handling on a slow/unresponsive opponent | Exchange tunnel URLs and confirm a real cross-network round trip |
+| ngrok binary downloaded, verified runnable | Run `tools/ngrok config add-authtoken <token>` once |
 
 ## Status
 
-Blocked on user action (tunneling account + a second machine). Not marked complete in `docs/TODO.md` -- see there for the honest status.
+Blocked on user action (ngrok account + a second machine) -- confirmed by actually running `tools/ngrok http` and hitting `ERR_NGROK_4018`, not just assumed. Not marked complete in `docs/TODO.md` -- see there for the honest status.

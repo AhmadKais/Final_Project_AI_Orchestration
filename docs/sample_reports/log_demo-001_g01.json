@@ -1,0 +1,292 @@
+{
+  "entries": [
+    {
+      "step": 0,
+      "role": "police",
+      "state": "{\"pos\":[0,0],\"role\":\"police\",\"step\":0}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "237ea5f454e62aa3db8ec6999d1b53be",
+      "h_commit": "73ac691bccbe7cd7d0aacb9d5b092b3eef0ea149424759940e376a0be8e70260"
+    },
+    {
+      "step": 0,
+      "role": "thief",
+      "state": "{\"pos\":[3,3],\"role\":\"thief\",\"step\":0}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "c86e3fd727a863ac375deaf8d9620d9b",
+      "h_commit": "978d143dae41d1a9bad99957c52f08e2f7f8b6aa0dc4c01cc6fd34ecbadd8895"
+    },
+    {
+      "step": 1,
+      "role": "police",
+      "state": "{\"pos\":[0,0],\"role\":\"police\",\"step\":1}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "9e4d7349d9cf2368c2ff693234cd355d",
+      "h_commit": "3ed7955d0b54d8cb37dc559781c0b1f576c12daf10ef05861940efb77b63dbc5"
+    },
+    {
+      "step": 1,
+      "role": "thief",
+      "state": "{\"pos\":[4,3],\"role\":\"thief\",\"step\":1}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "cb7eec189b115cdb066baaeb1b39cd98",
+      "h_commit": "040eb21ce1bbdd4214d48db76c5eaea2b2693ba809715364534fdad5de07c906"
+    },
+    {
+      "step": 2,
+      "role": "police",
+      "state": "{\"pos\":[1,0],\"role\":\"police\",\"step\":2}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "8015f2a4baa5a0c23ac1328891fdfe42",
+      "h_commit": "c94b787b96bf527923b0840e404e32293409c03cf850632a711809f29b594b99"
+    },
+    {
+      "step": 2,
+      "role": "thief",
+      "state": "{\"pos\":[5,3],\"role\":\"thief\",\"step\":2}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "45cdd969abaa53dcfd3ff54b5ec03830",
+      "h_commit": "9566f4d42f0d45e06d913d5dd5c6fb9620039ea51a7a7796b0e52ce95a6cfaa1"
+    },
+    {
+      "step": 3,
+      "role": "police",
+      "state": "{\"pos\":[2,0],\"role\":\"police\",\"step\":3}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "1a15f6892c7336280335dfd51dbaceca",
+      "h_commit": "a4f1ce2cc8a859e092bb6507dbdc08d372b613622903d5202c6d482b5681dee6"
+    },
+    {
+      "step": 3,
+      "role": "thief",
+      "state": "{\"pos\":[5,4],\"role\":\"thief\",\"step\":3}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "5936fdc3f35730374f459fd408464614",
+      "h_commit": "983d614224bff17605c37270e7f85f60c745e4da6dc17f7e54242b70d5098da0"
+    },
+    {
+      "step": 4,
+      "role": "police",
+      "state": "{\"pos\":[3,0],\"role\":\"police\",\"step\":4}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "0218fdfb03367317ec8a340d1570e258",
+      "h_commit": "d5ea2090de5238440946355987de705e4413c938ced71dc393edbf86e6a7158e"
+    },
+    {
+      "step": 4,
+      "role": "thief",
+      "state": "{\"pos\":[5,5],\"role\":\"thief\",\"step\":4}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "225a48c3fb8a8db7a51ddcfafed0f7e4",
+      "h_commit": "730e4da671d7801a5703058e1ac541e9878e3fea5f9530bb8d9261f72ac54424"
+    },
+    {
+      "step": 5,
+      "role": "police",
+      "state": "{\"pos\":[4,0],\"role\":\"police\",\"step\":5}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "2b05cd761c0fb377028428b1c502e793",
+      "h_commit": "74de6742491b3b4d31c747e47f37d7fedd22060f6d5ff704c34fadde992f1162"
+    },
+    {
+      "step": 5,
+      "role": "thief",
+      "state": "{\"pos\":[6,5],\"role\":\"thief\",\"step\":5}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "cb51860508e0f11b1d1edb8dd5ff81bb",
+      "h_commit": "1f35a57ea9f368ce9a9f217ed4c1bfc23e3713be4e1c2cbe814e47ccb49782ee"
+    },
+    {
+      "step": 6,
+      "role": "police",
+      "state": "{\"pos\":[5,0],\"role\":\"police\",\"step\":6}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "5413ba7d87b9aa1955d88afdec086ca7",
+      "h_commit": "89c5a1b82ea54b04c2d0360cd5a2accd2e300cb64c2d1b71340de223ca389f28"
+    },
+    {
+      "step": 6,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":6}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "fe370fb9d0c403e2f9b8f848e10853a4",
+      "h_commit": "cbd87626d230a1bbdf9753614dcb188067472032888af49295a131aafbd6d3ab"
+    },
+    {
+      "step": 7,
+      "role": "police",
+      "state": "{\"pos\":[5,1],\"role\":\"police\",\"step\":7}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "0c4b078c66d4f935b311a9c824720f3b",
+      "h_commit": "63f6a339cc792e18818bed07d5a397c5880bc19426acb64a28c7c0d29d2a1988"
+    },
+    {
+      "step": 7,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":7}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "7e14140ae6e135daf4640b8058f8ce09",
+      "h_commit": "0cc45cb1f053344e71c57b2a2a5a9d5cc20f7fe4f63c6e15e247c79f1ea18633"
+    },
+    {
+      "step": 8,
+      "role": "police",
+      "state": "{\"pos\":[5,2],\"role\":\"police\",\"step\":8}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "b67d09d14d361aa03a30339413ff0cc5",
+      "h_commit": "462038b082ce4a430ad224b409d3a21aa01604d72a0bdead5292d01d3d77a284"
+    },
+    {
+      "step": 8,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":8}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "95f61d148320c7579c9472a7811e2301",
+      "h_commit": "85c2060400ebd982d473416889bbfe272ac3fcb7f48b551c89ec0036773d4d92"
+    },
+    {
+      "step": 9,
+      "role": "police",
+      "state": "{\"pos\":[5,3],\"role\":\"police\",\"step\":9}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "715bbf67121369ae2914dbebd721cff0",
+      "h_commit": "83ef3444c996308e5dfc43fead4919d9668a7e8b3a5acc0eafabb030240a084f"
+    },
+    {
+      "step": 9,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":9}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "b1402c293fda97e6cc0d3aebba71b340",
+      "h_commit": "05a2d7faf934e1129cc1a02e931e0ae69e157dfa946d1e9c95fca666c5c96ec0"
+    },
+    {
+      "step": 10,
+      "role": "police",
+      "state": "{\"pos\":[5,4],\"role\":\"police\",\"step\":10}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "05ccec74558d9453a7d4610ba2af1d2b",
+      "h_commit": "460853dcbf0c0280c9aa055c278ea978d5d51cc3eb5d583765d62cff79d5c192"
+    },
+    {
+      "step": 10,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":10}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "e95420bd83d570d228e5e22468e11651",
+      "h_commit": "a7872a860edd941062d5656e516dbd48200825e5e196875a8aced4fa232c3916"
+    },
+    {
+      "step": 11,
+      "role": "police",
+      "state": "{\"pos\":[5,4],\"role\":\"police\",\"step\":11}",
+      "move": "STAY+BARRIER:6,4",
+      "intent": "true",
+      "nonce": "55c0fae64c48047217a2ac7d5bc44e14",
+      "h_commit": "f45b559a0c364f0702f4d66a2e8c030b99d5940caaa889d7994fea58833d2f2e"
+    },
+    {
+      "step": 11,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":11}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "bcc85e84b1e34bbef6fa91be94c5b144",
+      "h_commit": "c84c42dffe260293a71c2ff56c0ee7f6e1e67990095ac9fb8854c66863177e7c"
+    },
+    {
+      "step": 12,
+      "role": "police",
+      "state": "{\"pos\":[5,4],\"role\":\"police\",\"step\":12}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "5b2f463996879f2160084f314abecaa6",
+      "h_commit": "8aa7e4e831e0b416ef8adc2170af9ada24b836579339152bbedc6e8883c2c8a1"
+    },
+    {
+      "step": 12,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":12}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "72b2e2a34d7e42f66a7a14b72b465f53",
+      "h_commit": "64663cd7be24313ee06eb43365a157844f37b06d9315f0ab8f30e08d7a60e34a"
+    },
+    {
+      "step": 13,
+      "role": "police",
+      "state": "{\"pos\":[5,5],\"role\":\"police\",\"step\":13}",
+      "move": "STAY+BARRIER:6,5",
+      "intent": "true",
+      "nonce": "31da21ea6e5fc388f922663d48a83416",
+      "h_commit": "76996308c51f8a15dbd55c810f4ed20f7b580bed2a94683a61f5a55c19fa8f7c"
+    },
+    {
+      "step": 13,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":13}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "a6e90bdb6172546a32ea8cc457c99513",
+      "h_commit": "30e37ab57e174adfa700a43c173f61e6d11e3787a3a0be6b7a763941b38b38be"
+    },
+    {
+      "step": 14,
+      "role": "police",
+      "state": "{\"pos\":[5,5],\"role\":\"police\",\"step\":14}",
+      "move": "E",
+      "intent": "true",
+      "nonce": "3e8645beeca63150439cfdf4dfe0b16a",
+      "h_commit": "5033a461a6d25547e364c89d81ceca7166c9ecbf0087d2e96cff73cd359653e3"
+    },
+    {
+      "step": 14,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":14}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "2519cdbd819ae60faa8a50408e1195a2",
+      "h_commit": "dbfe593ee82412ce29c25fb9ba50883a8fc10d192ab25640d5ea9db15518eb9c"
+    },
+    {
+      "step": 15,
+      "role": "police",
+      "state": "{\"pos\":[5,6],\"role\":\"police\",\"step\":15}",
+      "move": "S",
+      "intent": "true",
+      "nonce": "733de5e45e4cba0e35dd8ea66d2f8d96",
+      "h_commit": "dad47ac67f651f1527758eee40a9ce5c56bd3a454eba356496ac4f099cb51ff0"
+    },
+    {
+      "step": 15,
+      "role": "thief",
+      "state": "{\"pos\":[6,6],\"role\":\"thief\",\"step\":15}",
+      "move": "STAY",
+      "intent": "true",
+      "nonce": "b3508461cf32dfda07b93abfa54408e4",
+      "h_commit": "20a582ddbb34fdd266e6b36dde9e279ca59089bca804a9720cee98e731cad884"
+    }
+  ]
+}

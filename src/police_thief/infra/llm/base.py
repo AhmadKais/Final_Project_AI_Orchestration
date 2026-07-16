@@ -4,6 +4,20 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+SYSTEM_NOTE = (
+    "Respond with only a short, in-character verbal hint for a pursuit "
+    "game -- at most {word_limit} words, no explanation, just the line."
+)
+
+
+def truncate_to_word_limit(text: str, word_limit: int) -> str:
+    """Enforce the hint word cap (default 15, Appendix F Table 14) even if
+    the underlying model ignores the instruction in its system prompt."""
+    words = text.split()
+    if len(words) > word_limit:
+        words = words[:word_limit]
+    return " ".join(words)
+
 
 class LLMProvider(ABC):
     @abstractmethod

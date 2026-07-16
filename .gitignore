@@ -29,3 +29,7 @@ reports/*.json
 # Translation working files (not part of the code submission)
 translation_chunks/
 police_thief_p2p_he.txt
+
+# Third-party binary, not source -- downloaded on demand for Stage 5 (Cloud
+# Exposure and Tunneling), see docs/TUNNELING.md
+tools/ngrok

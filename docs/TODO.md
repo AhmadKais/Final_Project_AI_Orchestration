@@ -20,15 +20,16 @@ Mandatory repository content per spec Appendix E rule 50. Grouped by stage; see 
 - [x] Implement `BeliefMap.arg_max` / `.manhattan_distance` (the non-uncertainty half of belief.py)
 - [ ] Choose RL vs. heuristics vs. custom algorithm and document the choice in the README -- deferred to submission time (pure heuristics is the shipped default)
 
-## Stage 4 — Language and Scent Integration ✅ (mostly)
+## Stage 4 — Language and Scent Integration ✅
 - [x] Implement `ScentField.emit` / `.decay`
 - [x] Implement `BeliefMap.update_from_scent` / `.update_from_hint` (`.arg_max` done in Stage 3)
 - [x] Implement `TemplateProvider` (default, zero-token)
-- [ ] Implement `OllamaProvider`, `ClaudeAPIProvider`, `ClaudeCLIProvider` -- deferred, not required for zero-token play
+- [x] Implement `OllamaProvider`, `ClaudeAPIProvider`, `ClaudeCLIProvider` -- all mocked in tests (no real network/subprocess calls in the suite); `anthropic` added as a real dependency
 - [x] `HeuristicBrain` already belief-map-driven, no change needed (verified via `test_belief_updates.py`)
 
 ## Stage 5 — Cloud Exposure and Tunneling ⛔ blocked on you
-- [ ] Set up ngrok/Localtonet for both roles -- **requires your own account/authtoken, see `docs/TUNNELING.md`**
+- [x] ngrok binary downloaded to `tools/ngrok`, verified runnable
+- [ ] Run `tools/ngrok config add-authtoken <token>` -- **requires your own ngrok account, see `docs/TUNNELING.md`**
 - [ ] Update `config/<role>/game.toml` `opponent_url` for remote play
 - [ ] Run one full round against a remote peer -- **requires an actual second machine on a different network**
 
@@ -44,7 +45,7 @@ Mandatory repository content per spec Appendix E rule 50. Grouped by stage; see 
 - [x] Implement `infra/email_sender.py` (tested against a mocked Gmail service)
 - [x] Implement `interface/live_gui.py` (belief heatmap, turn banner) -- pure logic tested; live Tkinter rendering untested, no display/`python3-tk` in this sandbox
 - [x] Implement `interface/replay_viewer.py` (Verified OK / TAMPERED)
-- [ ] Generate the 4 sample JSON reports (declaration/config/log/results) for at least one real match -- game logs now generate for real (Stage 8), but the declaration/config/results trio still need a real league match, not just the in-process integration test
+- [x] Generate the 4 sample JSON reports (declaration/config/log/results) -- `scripts/generate_sample_reports.py` plays a real match and writes them to `docs/sample_reports/`; the log passes `ReplayViewer.verify_all()`. This is illustrative sample data (same purpose as the book's own attached examples), not a real league submission -- that still needs `credentials.json`/`token.json` and an actual opponent.
 
 ## Stage 8 — Orchestrator Integration ✅
 - [x] Implement `shared/config_manager.py` (load/merge/hash `game.json` + `game.toml`)

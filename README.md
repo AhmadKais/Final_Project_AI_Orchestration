@@ -4,7 +4,7 @@ Course final project for *Orchestration of AI Agents*, University of Haifa. Two 
 
 Full translated specification: [`police_thief_p2p_EN.md`](police_thief_p2p_EN.md) (translated from the original Hebrew, [`police_thief_p2p.pdf`](police_thief_p2p.pdf)).
 
-**Status: playable end-to-end.** All 8 development stages (`docs/PLAN.md`) are implemented and tested except Stage 5 (Cloud Exposure and Tunneling), which is genuinely blocked on your own tunneling-tool account and a second machine (see `docs/TUNNELING.md`) -- everything the code side needs for it has been ready since Stage 2. Two `Orchestrator`s can play a complete, cryptographically-verified game against each other right now (proven by `tests/test_orchestrator_integration.py`); real network deployment (`simulation_sdk.run_peer`) uses the identical code path, just pointed at a real opponent URL instead of an in-process one. 168 tests, 167 passing, 1 skipped (no display/`tkinter` in the dev sandbox this was built in). Beyond wiring, `HeuristicBrain` now also places barriers tactically (Cop, never self-trapping -- see `docs/STRATEGY.md`) and the belief map decays toward uniform each turn so a stale high-confidence guess can't get permanently stuck.
+**Status: playable end-to-end.** All 8 development stages (`docs/PLAN.md`) are implemented and tested, plus all four LLM providers. Stage 5 (Cloud Exposure and Tunneling) is the one piece genuinely blocked on your own action: `tools/ngrok` is pre-downloaded and verified runnable, but opening a real tunnel needs your own ngrok account/authtoken (confirmed by actually running it and hitting `ERR_NGROK_4018`), and proving NAT traversal needs a second machine on a different network -- see `docs/TUNNELING.md`. Two `Orchestrator`s can play a complete, cryptographically-verified game against each other right now (proven by `tests/test_orchestrator_integration.py`, and by `scripts/generate_sample_reports.py`'s real generated match in `docs/sample_reports/`); real network deployment (`simulation_sdk.run_peer`) uses the identical code path, just pointed at a real opponent URL instead of an in-process one. 177 tests, 176 passing, 1 skipped (no display/`tkinter` in the dev sandbox this was built in). Beyond wiring, `HeuristicBrain` now also places barriers tactically (Cop, never self-trapping -- see `docs/STRATEGY.md`) and the belief map decays toward uniform each turn so a stale high-confidence guess can't get permanently stuck.
 
 ## Architecture
 
@@ -61,7 +61,7 @@ Built in the eight layered stages defined in [`docs/PLAN.md`](docs/PLAN.md) / [`
 uv run pytest
 ```
 
-167 of 168 tests pass; the one skip is `test_live_gui.py`'s Tkinter widget-construction test, which needs a real display and `python3-tk` (not present in the sandbox this was built in — the pure heatmap/banner logic it depends on is fully tested). The centerpiece is `tests/test_orchestrator_integration.py`: two `Orchestrator`s, wired to each other's in-process FastMCP servers, play a complete game and produce a log that cryptographically re-verifies end to end.
+176 of 177 tests pass; the one skip is `test_live_gui.py`'s Tkinter widget-construction test, which needs a real display and `python3-tk` (not present in the sandbox this was built in — the pure heatmap/banner logic it depends on is fully tested). The centerpiece is `tests/test_orchestrator_integration.py`: two `Orchestrator`s, wired to each other's in-process FastMCP servers, play a complete game and produce a log that cryptographically re-verifies end to end.
 
 ---
 

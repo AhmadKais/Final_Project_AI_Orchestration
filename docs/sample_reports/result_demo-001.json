@@ -1,0 +1,17 @@
+{
+  "game_uid": "demo-001",
+  "sub_games": [
+    {
+      "sub_game_number": "01",
+      "outcome": "capture",
+      "steps_taken": 15,
+      "cop_score": 20,
+      "thief_score": 5,
+      "forgery_detected": false
+    }
+  ],
+  "cumulative": {
+    "cop_score": 20,
+    "thief_score": 5
+  }
+}
